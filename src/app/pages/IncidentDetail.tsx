@@ -1,0 +1,601 @@
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router';
+import { useAuth } from '../lib/auth-context';
+import { detailApi } from '../lib/api';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import {
+  ArrowLeft, Edit, FileText, Download, Send, CheckCircle2,
+  RefreshCw, Eye, X, ImageOff,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { format, parseISO } from 'date-fns';
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+import { supabase } from '../lib/supabase';
+import { generateIncidentReportPDF } from '../lib/generateIncidentReportPDF';
+import IncidentForm from './forms/IncidentForm';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function safeFmtDate(val: any, fmt: string): string {
+  if (!val) return '';
+  try {
+    const d = parseISO(String(val));
+    if (isNaN(d.getTime())) return '';
+    return format(d, fmt);
+  } catch { return ''; }
+}
+
+function fmtLocalDate(val?: string | null): string {
+  if (!val) return 'N/A';
+  try { return new Date(val + 'T12:00:00').toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
+  catch { return val; }
+}
+
+function SeverityBadge({ severity }: { severity?: string }) {
+  if (!severity) return null;
+  const s = severity.toLowerCase();
+  if (s === 'critical') return <Badge className="bg-red-600 text-white">Critical</Badge>;
+  if (s === 'moderate' || s === 'high') return <Badge className="bg-gray-900 text-white">{severity}</Badge>;
+  if (s === 'low') return <Badge variant="secondary">Low</Badge>;
+  return <Badge variant="outline">{severity}</Badge>;
+}
+
+function StatusBadge({ status }: { status?: string }) {
+  if (!status) return null;
+  const s = status.toLowerCase();
+  if (s === 'open')   return <Badge className="bg-gray-900 text-white">Open</Badge>;
+  if (s === 'closed') return <Badge variant="secondary" className="text-gray-500 font-normal">Closed</Badge>;
+  return <Badge variant="outline">{status}</Badge>;
+}
+
+function XcCausedBadge({ caused }: { caused?: string }) {
+  if (!caused) return null;
+  const s = caused.toLowerCase();
+  if (s === 'yes')          return <Badge className="bg-red-600 text-white">Yes</Badge>;
+  if (s === 'inconclusive') return <Badge variant="secondary" className="font-normal">Inconclusive</Badge>;
+  if (s === 'no')           return <Badge variant="outline" className="text-gray-500 font-normal">No</Badge>;
+  return <Badge variant="outline">{caused}</Badge>;
+}
+
+function Field({ label, value, children }: { label: string; value?: string | null; children?: React.ReactNode }) {
+  const content = children ?? value;
+  if (!content || content === 'N/A') return null;
+  return (
+    <div>
+      <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
+      <div className="text-sm text-gray-900">{content}</div>
+    </div>
+  );
+}
+
+function TextBlock({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div>
+      {label && <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">{label}</p>}
+      <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">{value}</p>
+    </div>
+  );
+}
+
+// ── PDF localStorage store ─────────────────────────────────────────────────────
+const LS_KEY = 'xc_incident_pdfs';
+
+const getAllPDFStore = (): Record<string, { preliminary?: string; final?: string }> => {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+};
+
+const getPDFs = (rowId: string): { preliminary: string; final: string } => {
+  const store = getAllPDFStore();
+  const entry = store[rowId] || {};
+  return { preliminary: entry.preliminary || '', final: entry.final || '' };
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export default function IncidentDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { accessToken, user } = useAuth();
+
+  const [incident,    setIncident]    = useState<any>(null);
+  const [lists,       setLists]       = useState<any[]>([]);
+  const [vendors,     setVendors]     = useState<any[]>([]);
+  const [customers,   setCustomers]   = useState<any[]>([]);
+  const [districts,   setDistricts]   = useState<any[]>([]);
+  const [loading,     setLoading]     = useState(true);
+
+  // Edit dialog
+  const [formOpen,    setFormOpen]    = useState(false);
+
+  // PDF state
+  const [generatingPDF,  setGeneratingPDF]  = useState<string | null>(null);
+  const [pdfPreviewUrl,  setPdfPreviewUrl]  = useState('');
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfTick,        setPdfTick]        = useState(0); // forces re-render on generate
+
+  useEffect(() => {
+    if (id && accessToken) loadAll();
+  }, [id, accessToken]);
+
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const restBase = `https://${projectId}.supabase.co/rest/v1`;
+      const restHeaders = { 'apikey': publicAnonKey, 'Authorization': `Bearer ${publicAnonKey}` };
+      const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-64775d98`;
+
+      const [incidentData, listsRes, vendorsRes, custRes, distRes] = await Promise.all([
+        detailApi.getIncident(id!, accessToken!),
+        fetch(`${restBase}/lists?select=row_id,failed_component,failure_type`, { headers: restHeaders }),
+        fetch(`${restBase}/vendors?select=row_id,vendor`, { headers: restHeaders }),
+        fetch(`${baseUrl}/customers`, { headers: { 'Authorization': `Bearer ${publicAnonKey}` } }),
+        fetch(`${baseUrl}/districts`, { headers: { 'Authorization': `Bearer ${publicAnonKey}` } }),
+      ]);
+
+      setIncident(incidentData);
+      if (listsRes.ok)   setLists(await listsRes.json()   || []);
+      if (vendorsRes.ok) setVendors(await vendorsRes.json() || []);
+      if (custRes.ok)    setCustomers(await custRes.json() || []);
+      if (distRes.ok)    setDistricts(await distRes.json() || []);
+    } catch (error: any) {
+      console.error('Error loading incident:', error);
+      toast.error('Failed to load incident details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Lookup maps ───────────────────────────────────────────────────────────
+  const listMap = useMemo(() => {
+    const map: Record<string, { failed_component: string; failure_type: string }> = {};
+    lists.forEach((l: any) => {
+      if (l.row_id) map[l.row_id] = { failed_component: l.failed_component || '', failure_type: l.failure_type || '' };
+    });
+    return map;
+  }, [lists]);
+
+  const vendorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    vendors.forEach((v: any) => { if (v.row_id) map[v.row_id] = v.vendor; });
+    return map;
+  }, [vendors]);
+
+  const customerMap = useMemo(() => {
+    const map: Record<string, { name: string; logo: string }> = {};
+    customers.forEach(c => { if (c.row_id) map[c.row_id] = { name: c.customer, logo: c.customer_logo }; });
+    return map;
+  }, [customers]);
+
+  const districtMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    districts.forEach(d => { if (d.row_id) map[d.row_id] = d.customer_district; });
+    return map;
+  }, [districts]);
+
+  // ── Resolved display values ────────────────────────────────────────────────
+  const resolvedFailedComponent = incident?.failed_component
+    ? (listMap[incident.failed_component]?.failed_component || incident.failed_component)
+    : 'N/A';
+
+  const resolvedFailureType = incident?.failure_type
+    ? (listMap[incident.failure_type]?.failure_type || incident.failure_type)
+    : 'N/A';
+
+  const resolvedVendor = incident?.vendor
+    ? (vendorMap[incident.vendor] || incident.vendor)
+    : 'N/A';
+
+  const customerDisplay = incident?.customerName
+    || (incident?.customer ? customerMap[incident.customer]?.name : null)
+    || incident?.customer || 'N/A';
+
+  const districtDisplay = incident?.districtName
+    || (incident?.customer_district ? districtMap[incident.customer_district] : null)
+    || incident?.customer_district || 'N/A';
+
+  // ── PDF helpers ────────────────────────────────────────────────────────────
+  const handleGeneratePDF = async (version: 'preliminary' | 'final') => {
+    if (!incident) return;
+    const genKey = `${incident.row_id}-${version}`;
+    setGeneratingPDF(genKey);
+    try {
+      toast.info(`Generating ${version} report…`);
+      const incData = { ...incident, report_version: version === 'preliminary' ? 'Preliminary' : 'Final' };
+
+      // Build customerMap/districtMap in the shape generateIncidentReportPDF expects
+      const custMapForPDF: Record<string, any> = {};
+      customers.forEach(c => { if (c.row_id) custMapForPDF[c.row_id] = { name: c.customer }; });
+
+      const blob = await generateIncidentReportPDF({
+        incident:   incData,
+        listMap:    listMap as any,
+        vendorMap:  vendorMap,
+        customerMap: custMapForPDF,
+        districtMap: districtMap,
+        returnBlob: true,
+      }) as Blob;
+
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to encode PDF'));
+        reader.readAsDataURL(blob);
+      });
+
+      const store = getAllPDFStore();
+      store[incident.row_id] = { ...store[incident.row_id], [version]: dataUrl };
+      localStorage.setItem(LS_KEY, JSON.stringify(store));
+
+      setPdfTick(t => t + 1);
+      toast.success(`${version === 'preliminary' ? 'Preliminary' : 'Final'} report ready`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Failed to generate PDF');
+    } finally {
+      setGeneratingPDF(null);
+    }
+  };
+
+  const handleToggleReportSent = async () => {
+    if (!incident) return;
+    const newValue = incident.report_sent ? null : new Date().toISOString();
+    const { error } = await supabase
+      .from('incidents')
+      .update({ report_sent: newValue })
+      .eq('row_id', incident.row_id);
+    if (error) { toast.error('Failed to update'); return; }
+    setIncident((prev: any) => ({ ...prev, report_sent: newValue }));
+    toast.success(newValue ? 'Marked as sent' : 'Marked as not sent');
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  if (loading) {
+    return <div className="p-8"><div className="max-w-5xl mx-auto text-center py-12">Loading...</div></div>;
+  }
+
+  if (!incident) {
+    return (
+      <div className="p-8">
+        <div className="max-w-5xl mx-auto text-center py-12">
+          <p className="text-gray-500 mb-4">Incident not found</p>
+          <Button onClick={() => navigate('/incidents')}>Back to Incidents</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const pdfs = getPDFs(incident.row_id);
+
+  return (
+    <div className="p-8">
+      <div className="max-w-5xl mx-auto">
+
+        {/* ── Header ── */}
+        <div className="mb-6">
+          <Button variant="ghost" onClick={() => navigate('/incidents')} className="mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Incidents
+          </Button>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Incident Details</h1>
+              <p className="text-gray-600 mt-1">Event #{incident.event_id || 'N/A'}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <StatusBadge status={incident.incident_status} />
+              <SeverityBadge severity={incident.incident_severity} />
+              {incident.xc_caused && (
+                <Badge variant={incident.xc_caused === 'Yes' ? 'destructive' : 'outline'}>
+                  XC: <XcCausedBadge caused={incident.xc_caused} />
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Action Bar ── */}
+        <Card className="mb-6">
+          <CardContent className="pt-4 pb-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={() => setFormOpen(true)} className="gap-2">
+                <Edit className="w-4 h-4" /> Edit Incident
+              </Button>
+
+              {(['preliminary', 'final'] as const).map(version => {
+                const url    = pdfs[version];
+                const label  = version === 'preliminary' ? 'Preliminary' : 'Final';
+                const genKey = `${incident.row_id}-${version}`;
+                return (
+                  <div key={version} className="flex items-center gap-1">
+                    {url && (
+                      <>
+                        <Button size="sm" variant="outline" className="gap-1.5"
+                          onClick={() => { setPdfPreviewUrl(url); setPdfPreviewOpen(true); }}>
+                          <Eye className="w-3.5 h-3.5" /> {label}
+                        </Button>
+                        <a href={url} download={`Incident_${incident.event_id}_${label}.pdf`}>
+                          <Button size="sm" variant="outline" className="gap-1.5">
+                            <Download className="w-3.5 h-3.5" />
+                          </Button>
+                        </a>
+                      </>
+                    )}
+                    <Button size="sm"
+                      variant={url ? 'outline' : 'default'}
+                      className={!url ? 'bg-gray-900 text-white hover:bg-gray-800 gap-1.5' : 'gap-1.5'}
+                      disabled={generatingPDF === genKey}
+                      onClick={() => handleGeneratePDF(version)}>
+                      {generatingPDF === genKey
+                        ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Generating…</>
+                        : <><FileText className="w-3.5 h-3.5" />{url ? `Regen ${label}` : `Generate ${label}`}</>}
+                    </Button>
+                  </div>
+                );
+              })}
+
+              <div className="ml-auto flex items-center gap-2">
+                {incident.report_sent && (
+                  <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Sent {safeFmtDate(incident.report_sent, 'M/d/yyyy')}
+                  </span>
+                )}
+                <Button size="sm" variant="outline"
+                  className={incident.report_sent
+                    ? 'text-red-600 border-red-200 hover:bg-red-50 gap-1.5'
+                    : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50 gap-1.5'}
+                  onClick={handleToggleReportSent}>
+                  {incident.report_sent
+                    ? <><X className="w-3.5 h-3.5" /> Mark Unsent</>
+                    : <><Send className="w-3.5 h-3.5" /> Mark as Sent</>}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-6">
+
+          {/* ── General Information ── */}
+          <Card>
+            <CardHeader><CardTitle>General Information</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <Field label="Customer" value={customerDisplay} />
+              <Field label="District" value={districtDisplay} />
+              <Field label="Date" value={fmtLocalDate(incident.date_incident)} />
+              <Field label="Status" value={incident.incident_status} />
+              <Field label="Operating Company" value={incident.operating_company} />
+              <Field label="Field / Facility" value={incident.field_facility} />
+              <Field label="Well Name" value={incident.well_name} />
+              <Field label="Stage #" value={incident['stage#']} />
+              <Field label="SO #" value={incident['so#']} />
+              <Field label="Field Visit ID" value={incident.field_visit_id} />
+              <Field label="Report Version" value={incident.report_version} />
+            </CardContent>
+          </Card>
+
+          {/* ── Personnel ── */}
+          <Card>
+            <CardHeader><CardTitle>Personnel</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-3 gap-4">
+              <Field label="XC Representative" value={incident.xc_rep} />
+              <Field label="XC District" value={incident.xc_district} />
+              <Field label="Customer Representative" value={incident.customer_rep} />
+              <Field label="EP Representative" value={incident.ep_rep} />
+            </CardContent>
+          </Card>
+
+          {/* ── Technical Details ── */}
+          <Card>
+            <CardHeader><CardTitle>Technical Details</CardTitle></CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-4">
+              <Field label="Product Line" value={incident.product_line} />
+              <Field label="Firing System" value={incident.firing_system} />
+              <Field label="Event Category" value={incident.event_category} />
+              <Field label="Severity" value={incident.incident_severity} />
+              <Field label="Failed Component" value={resolvedFailedComponent} />
+              <Field label="Failure Type" value={resolvedFailureType} />
+              <Field label="Vendor" value={resolvedVendor} />
+              <Field label="Vendor Caused" value={incident.vendor_caused} />
+              <div className="md:col-span-2">
+                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">XC Caused</p>
+                <XcCausedBadge caused={incident.xc_caused} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ── Incident Narrative ── */}
+          {(incident.incident_description || incident.investigation || incident.root_cause) && (
+            <Card>
+              <CardHeader><CardTitle>Incident Narrative</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <TextBlock label="Incident Description" value={incident.incident_description} />
+                <TextBlock label="Investigation Findings" value={incident.investigation} />
+                <TextBlock label="Root Cause" value={incident.root_cause} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Corrective & Preventive Actions ── */}
+          {(incident.corrective_action || incident.preventive_action || incident.action_assigned_to || incident.action_due_date || incident.action_status) && (
+            <Card>
+              <CardHeader><CardTitle>Corrective &amp; Preventive Actions</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <TextBlock label="Corrective Action" value={incident.corrective_action} />
+                <TextBlock label="Preventive Action" value={incident.preventive_action} />
+                <div className="grid md:grid-cols-3 gap-4 pt-2">
+                  <Field label="Assigned To" value={incident.action_assigned_to} />
+                  <Field label="Due Date" value={incident.action_due_date ? fmtLocalDate(incident.action_due_date) : null} />
+                  <Field label="Action Status" value={incident.action_status} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Closure ── */}
+          {(incident.closed_date || incident.closed_by) && (
+            <Card>
+              <CardHeader><CardTitle>Closure</CardTitle></CardHeader>
+              <CardContent className="grid md:grid-cols-2 gap-4">
+                <Field label="Closed Date" value={incident.closed_date ? fmtLocalDate(incident.closed_date) : null} />
+                <Field label="Closed By" value={incident.closed_by} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Notes ── */}
+          {incident.notes && (
+            <Card>
+              <CardHeader><CardTitle>Additional Notes</CardTitle></CardHeader>
+              <CardContent>
+                <TextBlock label="" value={incident.notes} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Evidence Images ── */}
+          {(incident.image1 || incident.image2) && (
+            <Card>
+              <CardHeader><CardTitle>Evidence Images</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[incident.image1, incident.image2].filter(Boolean).map((url: string, idx: number) => (
+                    <div key={idx} className="rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="block group">
+                        <img
+                          src={url}
+                          alt={`Evidence image ${idx + 1}`}
+                          className="w-full object-cover max-h-80 group-hover:opacity-90 transition-opacity"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                        <div className="hidden flex-col items-center justify-center py-12 text-gray-400 gap-2">
+                          <ImageOff className="w-8 h-8" />
+                          <span className="text-sm">Image unavailable</span>
+                        </div>
+                        <div className="px-3 py-2 bg-white border-t border-gray-100 flex items-center justify-between">
+                          <span className="text-xs text-gray-500 truncate">Image {idx + 1}</span>
+                          <Eye className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        </div>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* ── Reports ── */}
+          <Card>
+            <CardHeader><CardTitle>Reports</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {(['preliminary', 'final'] as const).map(version => {
+                const url    = pdfs[version];
+                const label  = version === 'preliminary' ? 'Preliminary' : 'Final';
+                const genKey = `${incident.row_id}-${version}`;
+                const color  = version === 'preliminary' ? 'amber' : 'blue';
+                return (
+                  <div key={version} className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50">
+                    <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold shrink-0
+                      ${color === 'amber' ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-blue-100 text-blue-700 border border-blue-300'}`}>
+                      {label[0]}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-700">{label} Report</p>
+                      <p className="text-xs text-gray-400">{url ? 'Generated' : 'Not yet generated'}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {url && (
+                        <>
+                          <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1"
+                            onClick={() => { setPdfPreviewUrl(url); setPdfPreviewOpen(true); }}>
+                            <Eye className="w-3 h-3" /> Preview
+                          </Button>
+                          <a href={url} download={`Incident_${incident.event_id}_${label}.pdf`}>
+                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1">
+                              <Download className="w-3 h-3" /> Download
+                            </Button>
+                          </a>
+                        </>
+                      )}
+                      <Button size="sm"
+                        variant={url ? 'outline' : 'default'}
+                        className={`h-7 px-2 text-xs gap-1 ${!url ? 'bg-gray-900 text-white hover:bg-gray-800' : ''}`}
+                        disabled={generatingPDF === genKey}
+                        onClick={() => handleGeneratePDF(version)}>
+                        {generatingPDF === genKey
+                          ? <><RefreshCw className="w-3 h-3 animate-spin" /> Generating…</>
+                          : <><FileText className="w-3 h-3" />{url ? 'Regenerate' : 'Generate'}</>}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Report Sent */}
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-700">Report Sent to Customer</p>
+                  {incident.report_sent
+                    ? <p className="text-xs text-emerald-600">Sent {safeFmtDate(incident.report_sent, 'MMMM d, yyyy')}</p>
+                    : <p className="text-xs text-gray-400">Not yet sent</p>}
+                </div>
+                <Button size="sm" variant="outline"
+                  className={`h-7 px-3 text-xs gap-1 ${incident.report_sent ? 'text-red-600 border-red-200 hover:bg-red-50' : 'text-emerald-700 border-emerald-200 hover:bg-emerald-50'}`}
+                  onClick={handleToggleReportSent}>
+                  {incident.report_sent
+                    ? <><X className="w-3 h-3" /> Mark Unsent</>
+                    : <><Send className="w-3 h-3" /> Mark as Sent</>}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+      </div>
+
+      {/* ── Edit Form ── */}
+      <IncidentForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSaved={() => { setFormOpen(false); loadAll(); }}
+        incident={incident}
+        currentUser={user}
+      />
+
+      {/* ── PDF Preview Modal ── */}
+      <Dialog open={pdfPreviewOpen} onOpenChange={setPdfPreviewOpen}>
+        <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b shrink-0">
+            <DialogTitle className="flex items-center justify-between pr-8">
+              <span className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-gray-500" />
+                Report Preview
+              </span>
+              <a href={pdfPreviewUrl} download className="mr-2">
+                <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5">
+                  <Download className="w-3 h-3" /> Download PDF
+                </Button>
+              </a>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {pdfPreviewUrl && (
+              <iframe
+                src={pdfPreviewUrl}
+                title="Incident Report PDF"
+                className="w-full h-full"
+                style={{ minHeight: '75vh' }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

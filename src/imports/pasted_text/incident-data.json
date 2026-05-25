@@ -1,0 +1,618 @@
+{
+  "tables": [
+    "customers",
+    "districts",
+    "fieldvisits",
+    "incidents",
+    "panels",
+    "kv_store_64775d98"
+  ],
+  "columns": {
+    "customers": [
+      {
+        "name": "row_id",
+        "type": "string",
+        "sample": "pCx1dogOAV4CQmunD3oZEe"
+      },
+      {
+        "name": "customer",
+        "type": "string",
+        "sample": "Basin Well Logging & Perforate"
+      },
+      {
+        "name": "customer_logo",
+        "type": "string",
+        "sample": "Customer Districts_Images/Qobvrh9ms14pYne2ZOdbVe.Customer Logo.193943.png"
+      }
+    ],
+    "districts": [
+      {
+        "name": "row_id",
+        "type": "string",
+        "sample": "Qobvrh9ms14pYne2ZOdbVe"
+      },
+      {
+        "name": "customer_district_id",
+        "type": "string",
+        "sample": "BWL_FAR"
+      },
+      {
+        "name": "customer_district",
+        "type": "string",
+        "sample": "BWL-Farmington"
+      },
+      {
+        "name": "customer_address",
+        "type": "string",
+        "sample": "2345 E Main St, Farmington, NM 87401"
+      },
+      {
+        "name": "district_contact",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "customer_email",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "customer_phone_number",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "customer",
+        "type": "string",
+        "sample": "pCx1dogOAV4CQmunD3oZEe"
+      },
+      {
+        "name": "customer_logo",
+        "type": "string",
+        "sample": "Customer Districts_Images/Qobvrh9ms14pYne2ZOdbVe.Customer Logo.193943.png"
+      },
+      {
+        "name": "customer_name",
+        "type": "string",
+        "sample": "Basin Well Logging & Perforate"
+      }
+    ],
+    "fieldvisits": [
+      {
+        "name": "row_id",
+        "type": "string",
+        "sample": "3wlIbuN20J4UIUeXxXHGD9"
+      },
+      {
+        "name": "field_visit_id",
+        "type": "string",
+        "sample": "1"
+      },
+      {
+        "name": "arrival_date",
+        "type": "string",
+        "sample": "2024-02-12T19:30:00+00:00"
+      },
+      {
+        "name": "departure_date",
+        "type": "string",
+        "sample": "2024-02-12T21:00:00+00:00"
+      },
+      {
+        "name": "visit_purpose",
+        "type": "string",
+        "sample": "Incident"
+      },
+      {
+        "name": "field_or_facility",
+        "type": "string",
+        "sample": "Field"
+      },
+      {
+        "name": "visit_summary",
+        "type": "string",
+        "sample": "Wiring issues, Too short of wires, Zip ties too tight, Scotchlocks incorrectly installed."
+      },
+      {
+        "name": "lat_long",
+        "type": "string",
+        "sample": "48.626170, -103.496970"
+      },
+      {
+        "name": "customer_rep",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "pad_name",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "visit_duration",
+        "type": "string",
+        "sample": "1:30:00"
+      },
+      {
+        "name": "operating_company",
+        "type": "string",
+        "sample": "Phoenix Operating LLC"
+      },
+      {
+        "name": "customer",
+        "type": "string",
+        "sample": "KjG_ZWKqyl4iuOGu8f5_Z9"
+      },
+      {
+        "name": "customer_district",
+        "type": "string",
+        "sample": "EAKdqhbDIl48uel7HQhzN1"
+      },
+      {
+        "name": "communication_panel",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "digital_shooting_panel",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "surface_tester",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "xc_rep",
+        "type": "string",
+        "sample": "Robert Grissom"
+      }
+    ],
+    "incidents": [
+      {
+        "name": "row_id",
+        "type": "string",
+        "sample": "qubnsFQLGj4EYmaXJ4Nxtf"
+      },
+      {
+        "name": "event_id",
+        "type": "string",
+        "sample": "1"
+      },
+      {
+        "name": "date_incident",
+        "type": "string",
+        "sample": "2022-01-04"
+      },
+      {
+        "name": "incident_status",
+        "type": "string",
+        "sample": "Closed"
+      },
+      {
+        "name": "incident_severity",
+        "type": "string",
+        "sample": "Moderate"
+      },
+      {
+        "name": "field_facility",
+        "type": "string",
+        "sample": "Facility"
+      },
+      {
+        "name": "notes",
+        "type": "string",
+        "sample": "Attempted to shoot gun 2 and showed open. Tried several times to shoot with no success. \n \n Supervisor contacted FSM and began to trouble shoot but Devon Rep informed supervisor to just skip gun and keep going. SQC was dispatched."
+      },
+      {
+        "name": "customer_rep",
+        "type": "string",
+        "sample": "_PII_"
+      },
+      {
+        "name": "ep_rep",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "well_name",
+        "type": "string",
+        "sample": "N/A"
+      },
+      {
+        "name": "stage#",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "xc_district",
+        "type": "string",
+        "sample": "Midland, TX"
+      },
+      {
+        "name": "product_line",
+        "type": "string",
+        "sample": "XC"
+      },
+      {
+        "name": "firing_system",
+        "type": "string",
+        "sample": "Control Fire"
+      },
+      {
+        "name": "xc_caused",
+        "type": "string",
+        "sample": "No"
+      },
+      {
+        "name": "event_category",
+        "type": "string",
+        "sample": "Misfire"
+      },
+      {
+        "name": "vendor_caused",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "so#",
+        "type": "string",
+        "sample": "#SO1028"
+      },
+      {
+        "name": "incident_description",
+        "type": "string",
+        "sample": "Attempted to shoot gun 2 and showed open. Tried several times to shoot with no success. \n \n Supervisor contacted FSM and began to trouble shoot but Devon Rep informed supervisor to \n \n just skip gun and keep going. SQC was dispatched."
+      },
+      {
+        "name": "investigation",
+        "type": "string",
+        "sample": "Once on surface crew broke gun #2 off the tool string. Upon investigation of the Misfired \n \n barrel it was noticed that the purple wire from bridge mold to the scotch lock was not crimped \n \n in scotch lock with the purple wire to the detonator. \n \n  \""
+      },
+      {
+        "name": "root_cause",
+        "type": "string",
+        "sample": "N/A"
+      },
+      {
+        "name": "image1",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "image2",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "incident_report",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "report_sent",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "slack_url",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "slack_ts",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "slack_channel",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "customer_district",
+        "type": "string",
+        "sample": "GuXBx9Tgs24ZmgRDmySA9b"
+      },
+      {
+        "name": "field_visit_id",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "xc_rep",
+        "type": "string",
+        "sample": "Austin English"
+      },
+      {
+        "name": "operating_company",
+        "type": "string",
+        "sample": "Devon Energy"
+      },
+      {
+        "name": "vendor",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "failed_component",
+        "type": "string",
+        "sample": "AVRMS2kzka4wqStOg6tM10"
+      },
+      {
+        "name": "customer",
+        "type": "string",
+        "sample": "8WOc8PqxM74wu14B19aRY2"
+      },
+      {
+        "name": "failure_type",
+        "type": "string",
+        "sample": "RdICtn14JR42MDLaiA6eja"
+      }
+    ],
+    "panels": [
+      {
+        "name": "row_id",
+        "type": "string",
+        "sample": "YegQescQF74bE-ighiv8U7"
+      },
+      {
+        "name": "panel_type",
+        "type": "string",
+        "sample": "Digital Shooting Panel"
+      },
+      {
+        "name": "plus_panel",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "serial#",
+        "type": "string",
+        "sample": "SH230518-2v3"
+      },
+      {
+        "name": "shootingfw",
+        "type": "string",
+        "sample": "1.2"
+      },
+      {
+        "name": "wl_controlfw",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "loggingfw",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "gui#",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "surfacefw",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "received_date",
+        "type": "string",
+        "sample": "2024-06-08"
+      },
+      {
+        "name": "xc_base",
+        "type": "string",
+        "sample": "Denver"
+      },
+      {
+        "name": "panel_status",
+        "type": "string",
+        "sample": "In Repair"
+      },
+      {
+        "name": "unit#",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "so#",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "date_updated",
+        "type": "string",
+        "sample": "1/23/2026"
+      },
+      {
+        "name": "tracking_info",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "comments",
+        "type": "string",
+        "sample": "Sending in for V3 board upgrade and checking on current application parameters"
+      },
+      {
+        "name": "verified",
+        "type": "string",
+        "sample": "Y"
+      },
+      {
+        "name": "rma",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "spare?",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "customer_district",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "operating_company",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "customer",
+        "type": "object",
+        "sample": null
+      },
+      {
+        "name": "updated_by",
+        "type": "string",
+        "sample": "Robert Grissom"
+      },
+      {
+        "name": "activity",
+        "type": "string",
+        "sample": "N"
+      }
+    ],
+    "kv_store_64775d98": [
+      {
+        "name": "key",
+        "type": "string",
+        "sample": "district:pCx1dogOAV4CQmunD3oZEe:import_1773958796355_0"
+      },
+      {
+        "name": "value",
+        "type": "object",
+        "sample": {
+          "id": "district:pCx1dogOAV4CQmunD3oZEe:import_1773958796355_0",
+          "name": "BWL-Farmington",
+          "address": "2345 E Main St, Farmington, NM 87401",
+          "createdAt": "2026-03-19T22:19:56.355Z",
+          "customerId": "pCx1dogOAV4CQmunD3oZEe",
+          "customerName": "Basin Well Logging & Perforate",
+          "importedFrom": "districts"
+        }
+      }
+    ]
+  },
+  "samples": {
+    "customers": {
+      "row_id": "pCx1dogOAV4CQmunD3oZEe",
+      "customer": "Basin Well Logging & Perforate",
+      "customer_logo": "Customer Districts_Images/Qobvrh9ms14pYne2ZOdbVe.Customer Logo.193943.png"
+    },
+    "districts": {
+      "row_id": "Qobvrh9ms14pYne2ZOdbVe",
+      "customer_district_id": "BWL_FAR",
+      "customer_district": "BWL-Farmington",
+      "customer_address": "2345 E Main St, Farmington, NM 87401",
+      "district_contact": null,
+      "customer_email": null,
+      "customer_phone_number": null,
+      "customer": "pCx1dogOAV4CQmunD3oZEe",
+      "customer_logo": "Customer Districts_Images/Qobvrh9ms14pYne2ZOdbVe.Customer Logo.193943.png",
+      "customer_name": "Basin Well Logging & Perforate"
+    },
+    "fieldvisits": {
+      "row_id": "3wlIbuN20J4UIUeXxXHGD9",
+      "field_visit_id": "1",
+      "arrival_date": "2024-02-12T19:30:00+00:00",
+      "departure_date": "2024-02-12T21:00:00+00:00",
+      "visit_purpose": "Incident",
+      "field_or_facility": "Field",
+      "visit_summary": "Wiring issues, Too short of wires, Zip ties too tight, Scotchlocks incorrectly installed.",
+      "lat_long": "48.626170, -103.496970",
+      "customer_rep": null,
+      "pad_name": null,
+      "visit_duration": "1:30:00",
+      "operating_company": "Phoenix Operating LLC",
+      "customer": "KjG_ZWKqyl4iuOGu8f5_Z9",
+      "customer_district": "EAKdqhbDIl48uel7HQhzN1",
+      "communication_panel": null,
+      "digital_shooting_panel": null,
+      "surface_tester": null,
+      "xc_rep": "Robert Grissom"
+    },
+    "incidents": {
+      "row_id": "qubnsFQLGj4EYmaXJ4Nxtf",
+      "event_id": "1",
+      "date_incident": "2022-01-04",
+      "incident_status": "Closed",
+      "incident_severity": "Moderate",
+      "field_facility": "Facility",
+      "notes": "Attempted to shoot gun 2 and showed open. Tried several times to shoot with no success. \n \n Supervisor contacted FSM and began to trouble shoot but Devon Rep informed supervisor to just skip gun and keep going. SQC was dispatched.",
+      "customer_rep": "_PII_",
+      "ep_rep": null,
+      "well_name": "N/A",
+      "stage#": null,
+      "xc_district": "Midland, TX",
+      "product_line": "XC",
+      "firing_system": "Control Fire",
+      "xc_caused": "No",
+      "event_category": "Misfire",
+      "vendor_caused": null,
+      "so#": "#SO1028",
+      "incident_description": "Attempted to shoot gun 2 and showed open. Tried several times to shoot with no success. \n \n Supervisor contacted FSM and began to trouble shoot but Devon Rep informed supervisor to \n \n just skip gun and keep going. SQC was dispatched.",
+      "investigation": "Once on surface crew broke gun #2 off the tool string. Upon investigation of the Misfired \n \n barrel it was noticed that the purple wire from bridge mold to the scotch lock was not crimped \n \n in scotch lock with the purple wire to the detonator. \n \n  \"",
+      "root_cause": "N/A",
+      "image1": null,
+      "image2": null,
+      "incident_report": null,
+      "report_sent": null,
+      "slack_url": null,
+      "slack_ts": null,
+      "slack_channel": null,
+      "customer_district": "GuXBx9Tgs24ZmgRDmySA9b",
+      "field_visit_id": null,
+      "xc_rep": "Austin English",
+      "operating_company": "Devon Energy",
+      "vendor": null,
+      "failed_component": "AVRMS2kzka4wqStOg6tM10",
+      "customer": "8WOc8PqxM74wu14B19aRY2",
+      "failure_type": "RdICtn14JR42MDLaiA6eja"
+    },
+    "panels": {
+      "row_id": "YegQescQF74bE-ighiv8U7",
+      "panel_type": "Digital Shooting Panel",
+      "plus_panel": null,
+      "serial#": "SH230518-2v3",
+      "shootingfw": "1.2",
+      "wl_controlfw": null,
+      "loggingfw": null,
+      "gui#": null,
+      "surfacefw": null,
+      "received_date": "2024-06-08",
+      "xc_base": "Denver",
+      "panel_status": "In Repair",
+      "unit#": null,
+      "so#": null,
+      "date_updated": "1/23/2026",
+      "tracking_info": null,
+      "comments": "Sending in for V3 board upgrade and checking on current application parameters",
+      "verified": "Y",
+      "rma": null,
+      "spare?": null,
+      "customer_district": null,
+      "operating_company": null,
+      "customer": null,
+      "updated_by": "Robert Grissom",
+      "activity": "N"
+    },
+    "kv_store_64775d98": {
+      "key": "district:pCx1dogOAV4CQmunD3oZEe:import_1773958796355_0",
+      "value": {
+        "id": "district:pCx1dogOAV4CQmunD3oZEe:import_1773958796355_0",
+        "name": "BWL-Farmington",
+        "address": "2345 E Main St, Farmington, NM 87401",
+        "createdAt": "2026-03-19T22:19:56.355Z",
+        "customerId": "pCx1dogOAV4CQmunD3oZEe",
+        "customerName": "Basin Well Logging & Perforate",
+        "importedFrom": "districts"
+      }
+    }
+  }
+}
