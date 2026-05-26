@@ -103,6 +103,7 @@ export default function IncidentForm({
   const [vendors, setVendors] = useState<any[]>([]);
   const [listItems, setListItems] = useState<any[]>([]);
   const [epCompanies, setEpCompanies] = useState<string[]>([]);
+  const [fieldVisits, setFieldVisits] = useState<any[]>([]);
 
   // Form state
   const [custId, setCustId] = useState('');
@@ -119,15 +120,15 @@ export default function IncidentForm({
 
   // ── Effects ─────────────────────────────────────────────────────────────────
 
-  // Fetch next available Event ID
+  // Fetch next available Event ID — fetches ALL event_ids and finds the true numeric max.
+  // We can't .order() because Supabase sorts event_id as text (e.g. "99" > "556"),
+  // and we can't .limit() because that would miss higher IDs.
   useEffect(() => {
     if (!open || editing) return;
 
     supabase
       .from('incidents')
       .select('event_id')
-      .order('event_id', { ascending: false })
-      .limit(20)
       .then(({ data }) => {
         const maxId = (data || []).reduce((max, row: any) => {
           const n = parseInt(row.event_id);
@@ -174,6 +175,22 @@ export default function IncidentForm({
       .eq('customer', custId)
       .order('customer_district')
       .then(({ data }) => setDistricts(data || []));
+  }, [custId]);
+
+  // Load recent field visits when customer changes
+  useEffect(() => {
+    if (!custId) {
+      setFieldVisits([]);
+      return;
+    }
+
+    supabase
+      .from('fieldvisits')
+      .select('row_id, field_visit_id, arrival_date, pad_name')
+      .eq('customer', custId)
+      .order('arrival_date', { ascending: false })
+      .limit(50)
+      .then(({ data }) => setFieldVisits(data || []));
   }, [custId]);
 
   // Pre-fill when editing
@@ -544,12 +561,20 @@ export default function IncidentForm({
             <Input name="so_number" defaultValue={incident?.so_number || ''} />
           </F>
 
-          <F label="Field Visit ID">
-            <Input
+          <F label="Field Visit">
+            <Sel
+              key={`fv-${incident?.row_id}-${fieldVisits.length}`}
               name="field_visit_id"
               defaultValue={incident?.field_visit_id || ''}
-              placeholder="Links to a field visit"
-            />
+            >
+              <option value="">— None / Not linked —</option>
+              {fieldVisits.map((v: any) => (
+                <option key={v.row_id} value={v.field_visit_id}>
+                  {v.field_visit_id} — {v.pad_name || 'No pad'} (
+                  {v.arrival_date?.slice(0, 10) || 'No date'})
+                </option>
+              ))}
+            </Sel>
           </F>
 
           {/* ── Technical Details ── */}
