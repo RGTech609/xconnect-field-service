@@ -112,6 +112,7 @@ export default function IncidentDetail() {
   const [updates,     setUpdates]     = useState<any[]>([]);
   const [updatesLoading, setUpdatesLoading] = useState(false);
   const [evidenceImages, setEvidenceImages] = useState<{ url: string; broken: boolean; source: string }[]>([]);
+  const [storedReports, setStoredReports] = useState<any[]>([]);
 
   // Add Update dialog
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -205,6 +206,18 @@ export default function IncidentDetail() {
         return true;
       });
       setEvidenceImages(deduped);
+
+      // Load stored reports (AppSheet originals + future server-stored generated reports)
+      if (incidentData?.event_id) {
+        const { data: reports } = await supabase
+          .from('incident_reports')
+          .select('*')
+          .eq('event_id', String(incidentData.event_id))
+          .order('generated_at', { ascending: false });
+        setStoredReports(reports || []);
+      } else {
+        setStoredReports([]);
+      }
     } catch (error: any) {
       console.error('Error loading incident:', error);
       toast.error('Failed to load incident details');
@@ -751,6 +764,74 @@ export default function IncidentDetail() {
                   </div>
                 );
               })}
+
+              {/* Stored reports (AppSheet originals + any saved-to-Storage reports) */}
+              {storedReports.length > 0 && (
+                <div className="pt-2 mt-2 border-t border-gray-100">
+                  <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
+                    Archive ({storedReports.length})
+                  </p>
+                  <div className="space-y-2">
+                    {storedReports.map((r) => {
+                      const isAppSheet = r.report_type === 'AppSheet Original';
+                      return (
+                        <div key={r.row_id} className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-white">
+                          <span
+                            className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold shrink-0 ${
+                              isAppSheet
+                                ? 'bg-gray-100 text-gray-600 border border-gray-300'
+                                : r.report_type === 'Final'
+                                ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                : 'bg-amber-100 text-amber-700 border border-amber-300'
+                            }`}
+                          >
+                            {isAppSheet ? 'A' : r.report_type[0]}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-700 truncate">
+                              {r.report_type}
+                              {r.file_name && (
+                                <span className="text-xs text-gray-400 font-normal ml-2">
+                                  {r.file_name}
+                                </span>
+                              )}
+                            </p>
+                            {r.generated_at && (
+                              <p className="text-xs text-gray-400">
+                                {safeFmtDate(r.generated_at, 'MMM d, yyyy')}
+                                {r.generated_by && ` • ${r.generated_by}`}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-xs gap-1"
+                              onClick={() => {
+                                setPdfPreviewUrl(r.file_url);
+                                setPdfPreviewOpen(true);
+                              }}
+                            >
+                              <Eye className="w-3 h-3" /> Preview
+                            </Button>
+                            <a
+                              href={r.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download={r.file_name || `Incident_${incident.event_id}_${r.report_type}.pdf`}
+                            >
+                              <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1">
+                                <Download className="w-3 h-3" /> Download
+                              </Button>
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Report Sent */}
               <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50">
