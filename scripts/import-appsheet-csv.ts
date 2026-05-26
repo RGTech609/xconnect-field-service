@@ -99,6 +99,31 @@ const COLUMN_MAP: Record<string, string> = {
 
 const DATE_FIELDS = new Set(['date_incident', 'action_due_date', 'closed_date']);
 
+// ── Enum value normalization ──────────────────────────────────────────────────
+// CSV uses slightly different labels than the Postgres enum in a few cases.
+const ENUM_NORMALIZE: Record<string, Record<string, string>> = {
+  xc_caused: {
+    'Under Investigation': 'Pending Investigation',
+  },
+};
+
+// ── Foreign-key resolution ────────────────────────────────────────────────────
+// These DB columns store a row_id (or PK text) that points at a lookup table.
+// For each, we build a map of (CSV name) -> row_id at start of run.
+//
+//   customer            -> customers.row_id            keyed by customers.customer
+//   customer_district   -> districts.row_id            keyed by districts.customer_district
+//   failed_component    -> lists.row_id                keyed by lists.failed_component
+//   field_visit_id      -> fieldvisits.field_visit_id  PK match (just verify exists)
+//   xc_rep              -> sqm.sq_manager              PK match (just verify exists)
+type LookupMaps = {
+  customer: Map<string, string>;
+  customer_district: Map<string, string>;
+  failed_component: Map<string, string>;
+  field_visit_id: Set<string>;
+  xc_rep: Set<string>;
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -191,6 +216,98 @@ async function transferFile(
   }
 }
 
+// ── Lookup table loader ───────────────────────────────────────────────────────
+async function loadLookups(): Promise<LookupMaps> {
+  console.log('Loading lookup tables (customers, districts, lists, fieldvisits, sqm)...');
+  const [cRes, dRes, lRes, fvRes, sRes] = await Promise.all([
+    supabase.from('customers').select('row_id, customer'),
+    supabase.from('districts').select('row_id, customer_district'),
+    supabase.from('lists').select('row_id, failed_component'),
+    supabase.from('fieldvisits').select('field_visit_id'),
+    supabase.from('sqm').select('sq_manager'),
+  ]);
+  if (cRes.error) throw new Error(`customers fetch: ${cRes.error.message}`);
+  if (dRes.error) throw new Error(`districts fetch: ${dRes.error.message}`);
+  if (lRes.error) throw new Error(`lists fetch: ${lRes.error.message}`);
+  if (fvRes.error) throw new Error(`fieldvisits fetch: ${fvRes.error.message}`);
+  if (sRes.error) throw new Error(`sqm fetch: ${sRes.error.message}`);
+
+  const customer = new Map<string, string>();
+  for (const r of cRes.data || []) if (r.customer && r.row_id) customer.set(r.customer.trim(), r.row_id);
+
+  const customer_district = new Map<string, string>();
+  for (const r of dRes.data || [])
+    if (r.customer_district && r.row_id) customer_district.set(r.customer_district.trim(), r.row_id);
+
+  const failed_component = new Map<string, string>();
+  for (const r of lRes.data || [])
+    if (r.failed_component && r.row_id) failed_component.set(r.failed_component.trim(), r.row_id);
+
+  const field_visit_id = new Set<string>();
+  for (const r of fvRes.data || []) if (r.field_visit_id) field_visit_id.add(String(r.field_visit_id).trim());
+
+  const xc_rep = new Set<string>();
+  for (const r of sRes.data || []) if (r.sq_manager) xc_rep.add(r.sq_manager.trim());
+
+  console.log(
+    `  customers: ${customer.size} | districts: ${customer_district.size} | lists: ${failed_component.size} | fieldvisits: ${field_visit_id.size} | sqm: ${xc_rep.size}\n`,
+  );
+  return { customer, customer_district, failed_component, field_visit_id, xc_rep };
+}
+
+// Resolve FK columns: replace name strings with row_ids; null + warn on miss.
+function resolveForeignKeys(
+  eventId: string,
+  payload: Record<string, any>,
+  lookups: LookupMaps,
+  unresolved: Record<string, Set<string>>,
+): Record<string, any> {
+  const out = { ...payload };
+
+  const resolveMap = (col: keyof LookupMaps & ('customer' | 'customer_district' | 'failed_component')) => {
+    const v = out[col];
+    if (!v) return;
+    const map = lookups[col] as Map<string, string>;
+    const rowId = map.get(String(v).trim());
+    if (rowId) {
+      out[col] = rowId;
+    } else {
+      console.log(`  ⚠ ${col} "${v}" not found in lookup — setting null`);
+      out[col] = null;
+      if (!unresolved[col]) unresolved[col] = new Set();
+      unresolved[col].add(String(v));
+    }
+  };
+
+  const resolveSet = (col: keyof LookupMaps & ('field_visit_id' | 'xc_rep')) => {
+    const v = out[col];
+    if (!v) return;
+    const set = lookups[col] as Set<string>;
+    if (!set.has(String(v).trim())) {
+      console.log(`  ⚠ ${col} "${v}" not found in lookup — setting null`);
+      out[col] = null;
+      if (!unresolved[col]) unresolved[col] = new Set();
+      unresolved[col].add(String(v));
+    }
+  };
+
+  resolveMap('customer');
+  resolveMap('customer_district');
+  resolveMap('failed_component');
+  resolveSet('field_visit_id');
+  resolveSet('xc_rep');
+
+  // Enum normalization
+  for (const [col, mapping] of Object.entries(ENUM_NORMALIZE)) {
+    const v = out[col];
+    if (v && mapping[v]) {
+      out[col] = mapping[v];
+    }
+  }
+
+  return out;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(`\n${'═'.repeat(72)}`);
@@ -223,6 +340,10 @@ async function main() {
     (existingRows || []).map((r: any) => [String(r.event_id), r]),
   );
   console.log(`Found ${existingRows?.length || 0} existing incidents\n`);
+
+  // Load FK lookup tables
+  const lookups = await loadLookups();
+  const unresolved: Record<string, Set<string>> = {};
 
   let inserted = 0,
     updated = 0,
@@ -302,12 +423,15 @@ async function main() {
     }
 
     // ── Build incident payload from CSV ──
-    const fromCsv: Record<string, any> = {};
+    const fromCsvRaw: Record<string, any> = {};
     for (const [csvCol, dbCol] of Object.entries(COLUMN_MAP)) {
-      fromCsv[dbCol] = cleanValue(dbCol, row[csvCol]);
+      fromCsvRaw[dbCol] = cleanValue(dbCol, row[csvCol]);
     }
-    if (image1Url) fromCsv['image1'] = image1Url;
-    if (image2Url) fromCsv['image2'] = image2Url;
+    if (image1Url) fromCsvRaw['image1'] = image1Url;
+    if (image2Url) fromCsvRaw['image2'] = image2Url;
+
+    // Resolve foreign keys and normalize enums
+    const fromCsv = resolveForeignKeys(eventId, fromCsvRaw, lookups, unresolved);
 
     // ── Preserve-edits merge: only write fields that are null/empty in DB ──
     let finalPayload: Record<string, any> = {};
@@ -399,6 +523,17 @@ async function main() {
   console.log(`Files transferred OK:  ${filesOK}`);
   console.log(`Files failed:          ${filesFail}`);
   console.log(`Reports added:         ${reportsAdded}`);
+
+  // Report any unresolved FK values so the user can backfill lookup tables
+  const unresolvedKeys = Object.keys(unresolved);
+  if (unresolvedKeys.length) {
+    console.log(`\nUnresolved FK values (set to null in incidents):`);
+    for (const k of unresolvedKeys) {
+      const vals = Array.from(unresolved[k]).sort();
+      console.log(`  ${k} (${vals.length}):`);
+      for (const v of vals) console.log(`    - ${v}`);
+    }
+  }
   console.log('');
 }
 
