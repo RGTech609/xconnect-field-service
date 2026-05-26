@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { useAuth } from '../lib/auth-context';
 import { detailApi } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { ArrowLeft, Calendar, MapPin, Clock, User, FileText } from 'lucide-react';
+import { Badge } from '../components/ui/badge';
+import { ArrowLeft, Calendar, MapPin, Clock, User, FileText, AlertTriangle, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function FieldVisitDetail() {
@@ -13,6 +15,7 @@ export default function FieldVisitDetail() {
   const { accessToken } = useAuth();
   const [visit, setVisit] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [relatedIncidents, setRelatedIncidents] = useState<any[]>([]);
 
   useEffect(() => {
     loadVisit();
@@ -27,6 +30,18 @@ export default function FieldVisitDetail() {
     try {
       const data = await detailApi.getFieldVisit(id, accessToken);
       setVisit(data);
+
+      // Load related incidents (by business field_visit_id)
+      if (data?.field_visit_id) {
+        const { data: inc } = await supabase
+          .from('incidents')
+          .select('row_id, event_id, date_incident, incident_status, incident_severity, incident_description')
+          .eq('field_visit_id', data.field_visit_id)
+          .order('date_incident', { ascending: false });
+        setRelatedIncidents(inc || []);
+      } else {
+        setRelatedIncidents([]);
+      }
     } catch (error: any) {
       console.error('Error loading field visit:', error);
       toast.error('Failed to load field visit details');
@@ -184,6 +199,65 @@ export default function FieldVisitDetail() {
                   {visit.visit_summary || 'No summary provided'}
                 </pre>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Related Incidents */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-gray-500" />
+                Related Incidents
+                {relatedIncidents.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">{relatedIncidents.length}</Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {relatedIncidents.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">
+                  No incidents linked to this field visit.
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {relatedIncidents.map((inc) => (
+                    <li key={inc.row_id}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/incidents/${inc.row_id}`)}
+                        className="w-full text-left py-3 px-2 hover:bg-gray-50 rounded transition-colors group"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-gray-900 group-hover:text-blue-600">
+                                Incident #{inc.event_id || inc.row_id.slice(0, 8)}
+                              </span>
+                              {inc.incident_status && (
+                                <Badge variant="outline" className="text-xs">{inc.incident_status}</Badge>
+                              )}
+                              {inc.incident_severity && (
+                                <Badge variant="outline" className="text-xs">{inc.incident_severity}</Badge>
+                              )}
+                              {inc.date_incident && (
+                                <span className="text-xs text-gray-500">
+                                  {new Date(inc.date_incident + 'T12:00:00').toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            {inc.incident_description && (
+                              <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                {inc.incident_description}
+                              </p>
+                            )}
+                          </div>
+                          <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-blue-500 flex-shrink-0 mt-1" />
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </div>

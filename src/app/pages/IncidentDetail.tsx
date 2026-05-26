@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   ArrowLeft, Edit, FileText, Download, Send, CheckCircle2,
-  RefreshCw, Eye, X, ImageOff,
+  RefreshCw, Eye, X, ImageOff, ExternalLink, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -106,6 +106,9 @@ export default function IncidentDetail() {
   const [customers,   setCustomers]   = useState<any[]>([]);
   const [districts,   setDistricts]   = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
+  const [linkedVisitRowId, setLinkedVisitRowId] = useState<string | null>(null);
+  const [updates,     setUpdates]     = useState<any[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
 
   // Edit dialog
   const [formOpen,    setFormOpen]    = useState(false);
@@ -140,6 +143,32 @@ export default function IncidentDetail() {
       if (vendorsRes.ok) setVendors(await vendorsRes.json() || []);
       if (custRes.ok)    setCustomers(await custRes.json() || []);
       if (distRes.ok)    setDistricts(await distRes.json() || []);
+
+      // Resolve linked field visit row_id (for cross-nav) using business field_visit_id
+      if (incidentData?.field_visit_id) {
+        const { data: fv } = await supabase
+          .from('fieldvisits')
+          .select('row_id')
+          .eq('field_visit_id', incidentData.field_visit_id)
+          .maybeSingle();
+        setLinkedVisitRowId(fv?.row_id || null);
+      } else {
+        setLinkedVisitRowId(null);
+      }
+
+      // Load incident_updates timeline (keyed by event_id)
+      if (incidentData?.event_id) {
+        setUpdatesLoading(true);
+        const { data: ups } = await supabase
+          .from('incident_updates')
+          .select('*')
+          .eq('incident_id', String(incidentData.event_id))
+          .order('update_date', { ascending: false });
+        setUpdates(ups || []);
+        setUpdatesLoading(false);
+      } else {
+        setUpdates([]);
+      }
     } catch (error: any) {
       console.error('Error loading incident:', error);
       toast.error('Failed to load incident details');
@@ -372,7 +401,24 @@ export default function IncidentDetail() {
               <Field label="Well Name" value={incident.well_name} />
               <Field label="Stage #" value={incident['stage#']} />
               <Field label="SO #" value={incident['so#']} />
-              <Field label="Field Visit ID" value={incident.field_visit_id} />
+              <Field label="Field Visit">
+                {incident.field_visit_id ? (
+                  linkedVisitRowId ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/field-visits/${linkedVisitRowId}`)}
+                      className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                    >
+                      {incident.field_visit_id}
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <span>{incident.field_visit_id}</span>
+                  )
+                ) : (
+                  <span className="text-gray-400">N/A</span>
+                )}
+              </Field>
               <Field label="Report Version" value={incident.report_version} />
             </CardContent>
           </Card>
@@ -489,6 +535,58 @@ export default function IncidentDetail() {
               </CardContent>
             </Card>
           )}
+
+          {/* ── Activity Timeline ── */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-gray-500" />
+                Activity Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {updatesLoading ? (
+                <p className="text-sm text-gray-400">Loading…</p>
+              ) : updates.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">
+                  No activity recorded for this incident yet.
+                </p>
+              ) : (
+                <ol className="relative border-l border-gray-200 ml-2 space-y-6">
+                  {updates.map((u: any) => (
+                    <li key={u.row_id} className="ml-4">
+                      <div className="absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full border border-white bg-gray-400" />
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <time className="text-xs text-gray-500">
+                          {safeFmtDate(u.update_date, 'MMM d, yyyy h:mm a')}
+                        </time>
+                        {u.update_type && (
+                          <Badge variant="outline" className="text-xs">{u.update_type}</Badge>
+                        )}
+                        {u.updated_by && (
+                          <span className="text-xs text-gray-600">by {u.updated_by}</span>
+                        )}
+                      </div>
+                      {u.note && (
+                        <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{u.note}</p>
+                      )}
+                      {u.slack_url && (
+                        <a
+                          href={u.slack_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline mt-1"
+                        >
+                          View Slack thread
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
 
           {/* ── Reports ── */}
           <Card>

@@ -360,8 +360,9 @@ export default function IncidentForm({
                 name="event_id"
                 required
                 value={nextEventId}
-                onChange={(e) => setNextEventId(e.target.value)}
-                className="font-mono"
+                readOnly
+                className="font-mono bg-gray-50 cursor-not-allowed"
+                title="Auto-assigned. Cannot be edited."
               />
             </F>
           )}
@@ -568,6 +569,14 @@ export default function IncidentForm({
               defaultValue={incident?.field_visit_id || ''}
             >
               <option value="">— None / Not linked —</option>
+              {/* Fallback: if editing an incident whose saved visit isn't in the latest-50 list,
+                  still show it so the link isn't silently dropped on save. */}
+              {incident?.field_visit_id &&
+                !fieldVisits.some((v: any) => v.field_visit_id === incident.field_visit_id) && (
+                  <option value={incident.field_visit_id}>
+                    {incident.field_visit_id} (previously linked)
+                  </option>
+                )}
               {fieldVisits.map((v: any) => (
                 <option key={v.row_id} value={v.field_visit_id}>
                   {v.field_visit_id} — {v.pad_name || 'No pad'} (
