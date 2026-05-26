@@ -111,6 +111,7 @@ export default function IncidentDetail() {
   const [linkedVisitRowId, setLinkedVisitRowId] = useState<string | null>(null);
   const [updates,     setUpdates]     = useState<any[]>([]);
   const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [evidenceImages, setEvidenceImages] = useState<{ url: string; broken: boolean; source: string }[]>([]);
 
   // Add Update dialog
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -170,6 +171,40 @@ export default function IncidentDetail() {
       } else {
         setUpdates([]);
       }
+
+      // Load evidence images: merge incidents.image1/image2 + images table rows
+      // (Old AppSheet imports stored images in the images table, not on the incidents row.)
+      const collected: { url: string; broken: boolean; source: string }[] = [];
+      if (incidentData?.image1) collected.push({ url: incidentData.image1, broken: false, source: 'incidents.image1' });
+      if (incidentData?.image2) collected.push({ url: incidentData.image2, broken: false, source: 'incidents.image2' });
+
+      if (incidentData?.event_id || incidentData?.row_id) {
+        // Query by either event_id OR row_id (40 legacy rows used row_id by mistake)
+        const { data: imgRows } = await supabase
+          .from('images')
+          .select('row_id, pictures, event_id')
+          .or(`event_id.eq.${incidentData.event_id},event_id.eq.${incidentData.row_id}`);
+        for (const r of imgRows || []) {
+          if (!r.pictures) continue;
+          const isHttp = r.pictures.startsWith('http');
+          const isJunk = r.pictures.includes('Unable to load image data');
+          if (isJunk) continue;
+          collected.push({
+            url: r.pictures,
+            broken: !isHttp,
+            source: 'images table',
+          });
+        }
+      }
+
+      // Dedupe by URL
+      const seen = new Set<string>();
+      const deduped = collected.filter((c) => {
+        if (seen.has(c.url)) return false;
+        seen.add(c.url);
+        return true;
+      });
+      setEvidenceImages(deduped);
     } catch (error: any) {
       console.error('Error loading incident:', error);
       toast.error('Failed to load incident details');
@@ -559,32 +594,49 @@ export default function IncidentDetail() {
           )}
 
           {/* ── Evidence Images ── */}
-          {(incident.image1 || incident.image2) && (
+          {evidenceImages.length > 0 && (
             <Card>
-              <CardHeader><CardTitle>Evidence Images</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  Evidence Images
+                  <Badge variant="secondary" className="ml-1">{evidenceImages.length}</Badge>
+                </CardTitle>
+              </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[incident.image1, incident.image2].filter(Boolean).map((url: string, idx: number) => (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {evidenceImages.map((img, idx) => (
                     <div key={idx} className="rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="block group">
-                        <img
-                          src={url}
-                          alt={`Evidence image ${idx + 1}`}
-                          className="w-full object-cover max-h-80 group-hover:opacity-90 transition-opacity"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                        <div className="hidden flex-col items-center justify-center py-12 text-gray-400 gap-2">
+                      {img.broken ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-gray-400 gap-2 px-3">
                           <ImageOff className="w-8 h-8" />
-                          <span className="text-sm">Image unavailable</span>
+                          <span className="text-xs text-center">
+                            Image not migrated from AppSheet
+                          </span>
+                          <span className="text-[10px] text-gray-300 truncate max-w-full">
+                            {img.url}
+                          </span>
                         </div>
-                        <div className="px-3 py-2 bg-white border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-xs text-gray-500 truncate">Image {idx + 1}</span>
-                          <Eye className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        </div>
-                      </a>
+                      ) : (
+                        <a href={img.url} target="_blank" rel="noopener noreferrer" className="block group">
+                          <img
+                            src={img.url}
+                            alt={`Evidence image ${idx + 1}`}
+                            className="w-full object-cover max-h-80 group-hover:opacity-90 transition-opacity"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="hidden flex-col items-center justify-center py-12 text-gray-400 gap-2">
+                            <ImageOff className="w-8 h-8" />
+                            <span className="text-sm">Image unavailable</span>
+                          </div>
+                          <div className="px-3 py-2 bg-white border-t border-gray-100 flex items-center justify-between">
+                            <span className="text-xs text-gray-500 truncate">Image {idx + 1}</span>
+                            <Eye className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                          </div>
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
