@@ -18,12 +18,12 @@ import { Upload, X, Loader2 } from 'lucide-react';
 const INCIDENT_STATUS_OPTS   = ['Open', 'Closed'];
 const INCIDENT_SEVERITY_OPTS = ['Low', 'Moderate', 'Critical'];
 const EVENT_CATEGORY_OPTS    = ['Misfire', 'Misrun', 'Released/Fished', 'Other', 'Shot Spare Gun', 'Surface', 'Caught by field personnel'];
-const PRODUCT_LINE_OPTS      = ['mRAIL', 'XC 2.75"', 'XC', 'DSX', 'RAIL', 'LynX', 'ReConnect', 'Haptix', 'XC Oriented'];
+const PRODUCT_LINE_OPTS      = ['mRAIL', 'XC 2.75"', 'XC', 'DSX', 'RAIL', 'LynX', 'ReConnect', 'Haptix', 'XC Oriented''DSX2'];
 const FIRING_SYSTEM_OPTS     = ['XFire', 'Control Fire', 'Unifire', 'Nextier', 'Dyna', 'eXodus', 'N/A'];
-const XC_CAUSED_OPTS         = ['Yes', 'No', 'Inconclusive', 'N/A', 'Pending Investigation'];
-const VENDOR_CAUSED_OPTS     = ['Yes', 'No', 'Pending Investigation'];
+const XC_CAUSED_OPTS         = ['Yes', 'No', 'Inconclusive', 'Pending Investigation'];
+const VENDOR_CAUSED_OPTS     = ['Yes', 'No', 'Pending Investigation', 'Inconclusive'];
 const FIELD_FACILITY_OPTS    = ['Field', 'Facility'];
-const ACTION_STATUS_OPTS     = ['Open', 'In Progress', 'Completed', 'N/A'];
+const ACTION_STATUS_OPTS     = ['Open', 'In Progress', 'Completed',];
 const REPORT_VERSION_OPTS    = ['Preliminary', 'Final'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -354,13 +354,13 @@ export default function IncidentForm({ open, onClose, onSaved, incident, current
             <Input name="well_name" defaultValue={incident?.well_name || ''} />
           </F>
 
-          <F label="Stage #">
-            <Input name="stage" defaultValue={incident?.['stage#'] || ''} />
-          </F>
+         <F label="Stage #">
+  <Input name="stage_number" defaultValue={incident?.stage_number || ''} />
+</F>
 
-          <F label="SO #">
-            <Input name="so" defaultValue={incident?.['so#'] || ''} />
-          </F>
+<F label="SO #">
+  <Input name="so_number" defaultValue={incident?.so_number || ''} />
+</F>
 
           <F label="Field Visit ID">
             <Input name="field_visit_id" defaultValue={incident?.field_visit_id || ''} placeholder="Links to a field visit" />
