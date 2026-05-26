@@ -8,8 +8,10 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import {
   ArrowLeft, Edit, FileText, Download, Send, CheckCircle2,
-  RefreshCw, Eye, X, ImageOff, ExternalLink, Clock,
+  RefreshCw, Eye, X, ImageOff, ExternalLink, Clock, Plus,
 } from 'lucide-react';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
@@ -110,6 +112,12 @@ export default function IncidentDetail() {
   const [updates,     setUpdates]     = useState<any[]>([]);
   const [updatesLoading, setUpdatesLoading] = useState(false);
 
+  // Add Update dialog
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [updateType, setUpdateType] = useState('Investigation');
+  const [updateNote, setUpdateNote] = useState('');
+  const [savingUpdate, setSavingUpdate] = useState(false);
+
   // Edit dialog
   const [formOpen,    setFormOpen]    = useState(false);
 
@@ -158,14 +166,7 @@ export default function IncidentDetail() {
 
       // Load incident_updates timeline (keyed by event_id)
       if (incidentData?.event_id) {
-        setUpdatesLoading(true);
-        const { data: ups } = await supabase
-          .from('incident_updates')
-          .select('*')
-          .eq('incident_id', String(incidentData.event_id))
-          .order('update_date', { ascending: false });
-        setUpdates(ups || []);
-        setUpdatesLoading(false);
+        await loadUpdates(String(incidentData.event_id));
       } else {
         setUpdates([]);
       }
@@ -265,6 +266,61 @@ export default function IncidentDetail() {
       toast.error(err.message || 'Failed to generate PDF');
     } finally {
       setGeneratingPDF(null);
+    }
+  };
+
+  const loadUpdates = async (eventId: string) => {
+    setUpdatesLoading(true);
+    const { data: ups } = await supabase
+      .from('incident_updates')
+      .select('*')
+      .eq('incident_id', eventId)
+      .order('update_date', { ascending: false });
+    setUpdates(ups || []);
+    setUpdatesLoading(false);
+  };
+
+  const UPDATE_TYPES = [
+    'Investigation',
+    'Root Cause',
+    'Corrective Action',
+    'Preventive Action',
+    'Status Change',
+    'Slack Note',
+    'General Note',
+  ];
+
+  const handleSubmitUpdate = async () => {
+    if (!incident?.event_id) {
+      toast.error('Cannot add update: incident has no Event ID');
+      return;
+    }
+    if (!updateNote.trim()) {
+      toast.error('Please enter a note');
+      return;
+    }
+
+    setSavingUpdate(true);
+    try {
+      const { error } = await supabase.from('incident_updates').insert({
+        incident_id: String(incident.event_id),
+        update_date: new Date().toISOString(),
+        updated_by: user?.name || user?.email || 'Unknown',
+        update_type: updateType,
+        note: updateNote.trim(),
+      });
+      if (error) throw error;
+
+      toast.success('Update added');
+      setUpdateDialogOpen(false);
+      setUpdateNote('');
+      setUpdateType('Investigation');
+      await loadUpdates(String(incident.event_id));
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Failed to add update');
+    } finally {
+      setSavingUpdate(false);
     }
   };
 
@@ -538,11 +594,20 @@ export default function IncidentDetail() {
 
           {/* ── Activity Timeline ── */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-gray-500" />
                 Activity Timeline
               </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setUpdateDialogOpen(true)}
+                disabled={!incident?.event_id}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Update
+              </Button>
             </CardHeader>
             <CardContent>
               {updatesLoading ? (
@@ -691,6 +756,63 @@ export default function IncidentDetail() {
                 style={{ minHeight: '75vh' }}
               />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Update Dialog ── */}
+      <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Timeline Update</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+                Update Type
+              </Label>
+              <select
+                value={updateType}
+                onChange={(e) => setUpdateType(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 text-sm"
+              >
+                {UPDATE_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+                Note <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                rows={5}
+                value={updateNote}
+                onChange={(e) => setUpdateNote(e.target.value)}
+                placeholder="What's the update? Investigation finding, action taken, status change, etc."
+                autoFocus
+              />
+            </div>
+            <div className="text-xs text-gray-500">
+              Posting as <span className="font-medium">{user?.name || user?.email || 'Unknown'}</span>
+            </div>
+            <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setUpdateDialogOpen(false)}
+                disabled={savingUpdate}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSubmitUpdate}
+                disabled={savingUpdate || !updateNote.trim()}
+              >
+                {savingUpdate ? 'Saving…' : 'Add Update'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
