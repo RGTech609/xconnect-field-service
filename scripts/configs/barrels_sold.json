@@ -1,0 +1,20 @@
+{
+  "table": "barrels_sold",
+  "appsheet_table": "Barrels Sold",
+  "mode": "preserve-edits",
+  "match_on": "row_id",
+  "column_map": {
+    "Date": "date",
+    "Product Line": "product_line",
+    "Quantity": "quantity",
+    "Customer": "customer",
+    "Customer District": "customer_district"
+  },
+  "fk_resolution": {
+    "customer": { "table": "customers", "match": "row_id", "return": "customer" },
+    "customer_district": { "table": "districts", "match": "customer_district_id", "return": "customer_district" }
+  },
+  "date_fields": ["date"],
+  "datetime_fields": [],
+  "enum_normalize": {}
+}
