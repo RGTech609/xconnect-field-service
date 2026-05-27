@@ -10,7 +10,10 @@
     "Customer": "customer",
     "Customer District": "customer_district"
   },
-  "fk_resolution": {},
+  "fk_resolution": {
+    "customer": { "table": "customers", "match": "row_id", "return": "customer" },
+    "customer_district": { "table": "districts", "match": "customer_district_id", "return": "customer_district" }
+  },
   "date_fields": ["date"],
   "datetime_fields": [],
   "enum_normalize": {}
