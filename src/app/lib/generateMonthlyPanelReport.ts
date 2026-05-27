@@ -3,6 +3,7 @@ import {
   XC_GREEN, XC_DARK, XC_BORDER, WHITE, GRAY_TEXT, XC_GRAY,
   MARGIN, CONT_W, PAGE_H, PAGE_W,
 } from './pdfUtils';
+import { getSerial } from './serialUtils';
 
 export interface MonthlyPanelReportOptions {
   panels: any[];
@@ -25,8 +26,6 @@ const LEASE_RATES: Record<string, { label: string; monthly: number; replace: num
 function fmt$(n: number) {
   return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 }
-
-const getSerial = (p: any) => p?.['serial#'] || p?.serial_number || p?.serial || '—';
 
 function sectionHead(doc: any, text: string, y: number): number {
   doc.setFillColor(...XC_DARK as [number, number, number]);
@@ -225,7 +224,7 @@ export async function generateMonthlyPanelReport(opts: MonthlyPanelReportOptions
 
   y = sectionHead(doc, 'Leased Panel Ledger', y);
 
-  const ledgerCols = { type: 70, serial: 55, unit: 30, fw: 27, status: CONT_W - 70 - 55 - 30 - 27 };
+  const ledgerCols = { serial: 36, status: 32, received: 40, customer: 40, district: CONT_W - 36 - 32 - 40 - 40 };
 
   const drawLedgerHeader = (dy: number) => {
     doc.setFillColor(...XC_GREEN as [number, number, number]);
@@ -233,11 +232,11 @@ export async function generateMonthlyPanelReport(opts: MonthlyPanelReportOptions
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(...WHITE as [number, number, number]);
-    doc.text('PANEL TYPE',  MARGIN + 2,                                                                      dy + 5.5);
-    doc.text('SERIAL #',    MARGIN + ledgerCols.type + 2,                                                    dy + 5.5);
-    doc.text('UNIT #',      MARGIN + ledgerCols.type + ledgerCols.serial + 2,                                dy + 5.5);
-    doc.text('FW VERSION',  MARGIN + ledgerCols.type + ledgerCols.serial + ledgerCols.unit + 2,              dy + 5.5);
-    doc.text('STATUS',      MARGIN + ledgerCols.type + ledgerCols.serial + ledgerCols.unit + ledgerCols.fw + 2, dy + 5.5);
+    doc.text('SERIAL #',   MARGIN + 2,                                         dy + 5.5);
+    doc.text('STATUS',     MARGIN + ledgerCols.serial + 2,                     dy + 5.5);
+    doc.text('RECEIVED',   MARGIN + ledgerCols.serial + ledgerCols.status + 2, dy + 5.5);
+    doc.text('CUSTOMER',   MARGIN + ledgerCols.serial + ledgerCols.status + ledgerCols.received + 2, dy + 5.5);
+    doc.text('DISTRICT',   MARGIN + ledgerCols.serial + ledgerCols.status + ledgerCols.received + ledgerCols.customer + 2, dy + 5.5);
     return dy + 8;
   };
 
@@ -251,54 +250,31 @@ export async function generateMonthlyPanelReport(opts: MonthlyPanelReportOptions
     'Sold':        [220, 38, 38],
   };
 
-  const grouped: Record<string, any[]> = {};
-  verifiedPanels.forEach(p => {
-    const t = p.panel_type || 'Other';
-    if (!grouped[t]) grouped[t] = [];
-    grouped[t].push(p);
-  });
-
   let rowIdx = 0;
-  for (const [type, typePanels] of Object.entries(grouped)) {
-    for (const p of typePanels) {
-      if (y + 8 > PAGE_H - 15) {
-        doc.addPage();
-        const hhn = drawHeader(doc);
-        y = drawLedgerHeader(hhn + 15);
-        rowIdx = 0;
-      }
-
-      doc.setFillColor(rowIdx % 2 === 0 ? 255 : 248, rowIdx % 2 === 0 ? 255 : 249, rowIdx % 2 === 0 ? 255 : 248);
-      doc.rect(MARGIN, y, CONT_W, 7.5, 'F');
-      doc.setDrawColor(...XC_BORDER as [number, number, number]);
-      doc.setLineWidth(0.15);
-      doc.line(MARGIN, y + 7.5, MARGIN + CONT_W, y + 7.5);
-
-      const isFirst = typePanels.indexOf(p) === 0;
-      if (isFirst) {
-        doc.setFillColor(...XC_GREEN as [number, number, number]);
-        doc.rect(MARGIN, y, 1.5, 7.5, 'F');
-      }
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.setTextColor(...XC_DARK as [number, number, number]);
-      doc.text(type, MARGIN + (isFirst ? 3.5 : 2), y + 5);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...GRAY_TEXT as [number, number, number]);
-      doc.text(getSerial(p), MARGIN + ledgerCols.type + 2,                                       y + 5);
-      doc.text(p['unit#']   || '—', MARGIN + ledgerCols.type + ledgerCols.serial + 2,                   y + 5);
-      doc.text(p.shootingfw || '—', MARGIN + ledgerCols.type + ledgerCols.serial + ledgerCols.unit + 2, y + 5);
-
-      const sc = STATUS_COLORS[p.panel_status] || (GRAY_TEXT as [number, number, number]);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...sc);
-      doc.text(p.panel_status || '—', MARGIN + ledgerCols.type + ledgerCols.serial + ledgerCols.unit + ledgerCols.fw + 2, y + 5);
-
-      y += 7.5;
-      rowIdx++;
+  for (const p of verifiedPanels) {
+    if (y + 8 > PAGE_H - 15) {
+      doc.addPage();
+      const hhn = drawHeader(doc);
+      y = drawLedgerHeader(hhn + 15);
+      rowIdx = 0;
     }
+
+    doc.setFillColor(rowIdx % 2 === 0 ? 255 : 248, rowIdx % 2 === 0 ? 255 : 249, rowIdx % 2 === 0 ? 255 : 248);
+    doc.rect(MARGIN, y, CONT_W, 7.5, 'F');
+    doc.setDrawColor(...XC_BORDER as [number, number, number]);
+    doc.setLineWidth(0.15);
+    doc.line(MARGIN, y + 7.5, MARGIN + CONT_W, y + 7.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...GRAY_TEXT as [number, number, number]);
+    doc.text(getSerial(p), MARGIN + 2, y + 5);
+    doc.text(p.panel_status || '—', MARGIN + ledgerCols.serial + 2, y + 5);
+    doc.text(p.received_date || '—', MARGIN + ledgerCols.serial + ledgerCols.status + 2, y + 5);
+    doc.text(p.customerName || '—', MARGIN + ledgerCols.serial + ledgerCols.status + ledgerCols.received + 2, y + 5);
+    doc.text(p.districtName || '—', MARGIN + ledgerCols.serial + ledgerCols.status + ledgerCols.received + ledgerCols.customer + 2, y + 5);
+
+    y += 7.5;
+    rowIdx++;
   }
 
   y += 2;
