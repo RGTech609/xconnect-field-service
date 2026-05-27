@@ -1,0 +1,13 @@
+{
+  "table": "customers",
+  "appsheet_table": "Customers",
+  "mode": "preserve-edits",
+  "match_on": "row_id",
+  "column_map": {
+    "Customer": "customer"
+  },
+  "fk_resolution": {},
+  "date_fields": [],
+  "datetime_fields": [],
+  "enum_normalize": {}
+}
