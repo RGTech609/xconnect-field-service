@@ -1,5 +1,3 @@
-// Entrypoint for Supabase Edge Function deployment.
-// Imports the Hono app from the same folder and starts the server.
+// Deploy entrypoint shim — re-exports the real Hono app from index.tsx (same folder).
 import app from "./index.tsx";
-
 Deno.serve(app.fetch);
