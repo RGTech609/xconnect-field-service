@@ -173,16 +173,35 @@ export default function IncidentDetail() {
         setUpdates([]);
       }
 
-      // Load evidence images: merge incidents.image1/image2 + images table rows
-      // (Old AppSheet imports stored images in the images table, not on the incidents row.)
+      // Load evidence images:
+      //   1) New polymorphic 'images' table (Supabase Storage signed URLs) — primary going forward
+      //   2) Legacy 'images_legacy' (path-only, broken) — still shown until Drive backfill finishes
+      //   3) incidents.image1/image2 columns (AppSheet relative paths — also broken until backfill)
       const collected: { url: string; broken: boolean; source: string }[] = [];
-      if (incidentData?.image1) collected.push({ url: incidentData.image1, broken: false, source: 'incidents.image1' });
-      if (incidentData?.image2) collected.push({ url: incidentData.image2, broken: false, source: 'incidents.image2' });
 
-      if (incidentData?.event_id || incidentData?.row_id) {
-        // Query by either event_id OR row_id (40 legacy rows used row_id by mistake)
-        const { data: imgRows } = await supabase
+      // New polymorphic images table
+      if (incidentData?.row_id) {
+        const { data: newImgs } = await supabase
           .from('images')
+          .select('id, public_url, storage_path, caption')
+          .eq('parent_table', 'incidents')
+          .eq('parent_row_id', incidentData.row_id)
+          .order('created_at', { ascending: true });
+        for (const r of newImgs || []) {
+          const url = r.public_url || r.storage_path;
+          if (!url) continue;
+          collected.push({ url, broken: !url.startsWith('http'), source: 'images' });
+        }
+      }
+
+      // Embedded image1/image2 (legacy AppSheet paths — broken until backfill)
+      if (incidentData?.image1) collected.push({ url: incidentData.image1, broken: !String(incidentData.image1).startsWith('http'), source: 'incidents.image1' });
+      if (incidentData?.image2) collected.push({ url: incidentData.image2, broken: !String(incidentData.image2).startsWith('http'), source: 'incidents.image2' });
+
+      // Legacy images_legacy (renamed from old 'images')
+      if (incidentData?.event_id || incidentData?.row_id) {
+        const { data: imgRows } = await supabase
+          .from('images_legacy')
           .select('row_id, pictures, event_id')
           .or(`event_id.eq.${incidentData.event_id},event_id.eq.${incidentData.row_id}`);
         for (const r of imgRows || []) {
@@ -193,7 +212,7 @@ export default function IncidentDetail() {
           collected.push({
             url: r.pictures,
             broken: !isHttp,
-            source: 'images table',
+            source: 'images_legacy',
           });
         }
       }
