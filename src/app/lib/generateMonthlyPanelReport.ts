@@ -224,7 +224,7 @@ export async function generateMonthlyPanelReport(opts: MonthlyPanelReportOptions
 
   y = sectionHead(doc, 'Leased Panel Ledger', y);
 
-  const ledgerCols = { serial: 32, customer: 62, district: 48, status: 24, received: CONT_W - 32 - 62 - 48 - 24 };
+  const ledgerCols = { serial: 32, customer: 70, district: 50, status: CONT_W - 32 - 70 - 50 };
 
   const drawLedgerHeader = (dy: number) => {
     doc.setFillColor(...XC_GREEN as [number, number, number]);
@@ -232,11 +232,10 @@ export async function generateMonthlyPanelReport(opts: MonthlyPanelReportOptions
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(...WHITE as [number, number, number]);
-    doc.text('SERIAL #',   MARGIN + 2,                                         dy + 5.5);
-    doc.text('CUSTOMER',   MARGIN + ledgerCols.serial + 2,                     dy + 5.5);
-    doc.text('DISTRICT',   MARGIN + ledgerCols.serial + ledgerCols.customer + 2, dy + 5.5);
-    doc.text('STATUS',     MARGIN + ledgerCols.serial + ledgerCols.customer + ledgerCols.district + 2, dy + 5.5);
-    doc.text('RECEIVED',   MARGIN + ledgerCols.serial + ledgerCols.customer + ledgerCols.district + ledgerCols.status + 2, dy + 5.5);
+    doc.text('SERIAL #', MARGIN + 2, dy + 5.5);
+    doc.text('CUSTOMER', MARGIN + ledgerCols.serial + 2, dy + 5.5);
+    doc.text('DISTRICT', MARGIN + ledgerCols.serial + ledgerCols.customer + 2, dy + 5.5);
+    doc.text('STATUS', MARGIN + ledgerCols.serial + ledgerCols.customer + ledgerCols.district + 2, dy + 5.5);
     return dy + 8;
   };
 
@@ -271,7 +270,6 @@ export async function generateMonthlyPanelReport(opts: MonthlyPanelReportOptions
     doc.text(p.customerName || '—', MARGIN + ledgerCols.serial + 2, y + 5);
     doc.text(p.districtName || '—', MARGIN + ledgerCols.serial + ledgerCols.customer + 2, y + 5);
     doc.text(p.panel_status || '—', MARGIN + ledgerCols.serial + ledgerCols.customer + ledgerCols.district + 2, y + 5);
-    doc.text(p.received_date || '—', MARGIN + ledgerCols.serial + ledgerCols.customer + ledgerCols.district + ledgerCols.status + 2, y + 5);
 
     y += 7.5;
     rowIdx++;
