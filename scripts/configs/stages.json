@@ -1,0 +1,17 @@
+{
+  "table": "stages",
+  "appsheet_table": "Stages",
+  "mode": "preserve-edits",
+  "match_on": "row_id",
+  "column_map": {
+    "Date": "date",
+    "Item": "item",
+    "Quantity": "quantity",
+    "Customer": "customer",
+    "Customer District": "customer_district"
+  },
+  "fk_resolution": {},
+  "date_fields": ["date"],
+  "datetime_fields": [],
+  "enum_normalize": {}
+}
