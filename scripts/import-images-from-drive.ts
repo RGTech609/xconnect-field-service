@@ -230,33 +230,38 @@ async function main() {
   // 4. Build lookup tables
   //
   // KEY MAPPING NOTES (verified by probe):
-  //   - Image1/Image2 filename prefix         == incidents.row_id
-  //   - images_legacy.event_id                == incidents.event_id  (NOT incidents.row_id)
-  //   - So for Pictures we need a 2-step lookup:
-  //       legacy.row_id -> legacy.event_id -> incidents.event_id -> incidents.row_id
+  //   - Image1/Image2 prefix:
+  //       (a) 22-char AppSheet row_id -> incidents.row_id (most files)
+  //       (b) plain integer string    -> incidents.event_id (legacy Sheets-era files)
+  //   - Pictures: images_legacy.pictures stores the EXACT relative path
+  //     (e.g. "Images_Images/Copy of 010fef75.Pictures.013715.jpg").
+  //     So we join images_legacy.pictures = rel_path -> legacy.event_id
+  //     -> incidents.event_id -> incidents.row_id.
   //   - We store parent_row_id := incidents.row_id everywhere (consistent PK).
-  const pictureRowIds = parsed
-    .filter(p => p.field_name === "Pictures" && p.prefix_is_row_id)
-    .map(p => p.prefix);
-  const legacyEventIdMap = new Map<string, string>(); // legacy.row_id -> legacy.event_id (== incidents.event_id)
-  if (pictureRowIds.length > 0) {
-    console.log(`Resolving ${pictureRowIds.length} Pictures rows -> images_legacy.event_id ...`);
-    const chunkSize = 500;
-    for (let i = 0; i < pictureRowIds.length; i += chunkSize) {
-      const slice = pictureRowIds.slice(i, i + chunkSize);
+
+  // Pictures: build rel_path -> incidents.row_id map via images_legacy.pictures
+  const pictureRelPaths = parsed
+    .filter(p => p.field_name === "Pictures")
+    .map(p => p.rel_path);
+  const pictureRelToEventId = new Map<string, string>(); // rel_path -> legacy.event_id
+  if (pictureRelPaths.length > 0) {
+    console.log(`Resolving ${pictureRelPaths.length} Pictures files -> images_legacy.pictures ...`);
+    const chunkSize = 200;
+    for (let i = 0; i < pictureRelPaths.length; i += chunkSize) {
+      const slice = pictureRelPaths.slice(i, i + chunkSize);
       const { data, error } = await sb
         .from("images_legacy")
-        .select("row_id,event_id")
-        .in("row_id", slice);
+        .select("pictures,event_id,row_id")
+        .in("pictures", slice);
       if (error) {
-        console.error("images_legacy lookup failed:", error);
+        console.error("images_legacy.pictures lookup failed:", error);
         process.exit(1);
       }
       for (const r of data ?? []) {
-        if (r.event_id) legacyEventIdMap.set(r.row_id, r.event_id);
+        if (r.pictures && r.event_id) pictureRelToEventId.set(r.pictures, r.event_id);
       }
     }
-    console.log(`  Resolved ${legacyEventIdMap.size}/${pictureRowIds.length}`);
+    console.log(`  Resolved ${pictureRelToEventId.size}/${pictureRelPaths.length} via images_legacy.pictures`);
   }
 
   // 4b. customers: row_id and customer-name -> row_id
@@ -321,29 +326,42 @@ async function main() {
     let appsheet_row_id: string | null = p.prefix_is_row_id ? p.prefix : null;
 
     if (p.subfolder === "Incident_Images") {
-      // Image1 / Image2: prefix must be a 22-char row_id matching incidents.id
-      if (!p.prefix_is_row_id) {
-        skipped.push({ filename: p.rel_path, reason: "Incident image without row_id prefix" });
+      // Image1 / Image2: prefix is either a 22-char row_id OR a plain integer event_id
+      if (p.prefix_is_row_id) {
+        if (!incidentRowIds.has(p.prefix)) {
+          skipped.push({ filename: p.rel_path, reason: `no incident with row_id=${p.prefix}` });
+          continue;
+        }
+        parent_table = "incidents";
+        parent_row_id = p.prefix;
+      } else if (/^\d+$/.test(p.prefix)) {
+        // legacy integer event_id
+        const incRowId = incidentEventToRow.get(p.prefix);
+        if (!incRowId) {
+          skipped.push({
+            filename: p.rel_path,
+            reason: `no incident with event_id=${p.prefix}`,
+          });
+          continue;
+        }
+        parent_table = "incidents";
+        parent_row_id = incRowId;
+        appsheet_row_id = p.prefix; // keep the integer too
+      } else {
+        skipped.push({
+          filename: p.rel_path,
+          reason: `unrecognized incident prefix format: "${p.prefix}"`,
+        });
         continue;
       }
-      if (!incidentRowIds.has(p.prefix)) {
-        skipped.push({ filename: p.rel_path, reason: `no incident with id=${p.prefix}` });
-        continue;
-      }
-      parent_table = "incidents";
-      parent_row_id = p.prefix;
 
     } else if (p.subfolder === "Images_Images") {
-      // Pictures: legacy.row_id -> legacy.event_id -> incidents.row_id (via incidents.event_id)
-      if (!p.prefix_is_row_id) {
-        skipped.push({ filename: p.rel_path, reason: "Pictures file without row_id prefix" });
-        continue;
-      }
-      const eventId = legacyEventIdMap.get(p.prefix);
+      // Pictures: resolved by exact images_legacy.pictures = rel_path match
+      const eventId = pictureRelToEventId.get(p.rel_path);
       if (!eventId) {
         skipped.push({
           filename: p.rel_path,
-          reason: `no images_legacy.event_id for row_id=${p.prefix}`,
+          reason: `images_legacy has no row with pictures=<rel_path>`,
         });
         continue;
       }
@@ -357,6 +375,7 @@ async function main() {
       }
       parent_table = "incidents";
       parent_row_id = incRowId;
+      // appsheet_row_id stays whatever the prefix parser set (row_id if 22-char, else null)
 
     } else if (p.subfolder === "Customers_Images") {
       parent_table = "customers";
