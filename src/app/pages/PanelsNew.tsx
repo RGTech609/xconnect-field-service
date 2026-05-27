@@ -7,11 +7,10 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import { Plus, Edit, ExternalLink, X, Download, FileText } from 'lucide-react';
+import { Plus, Edit, Trash, ExternalLink, X, Download, FileText } from 'lucide-react';
 import { generatePanelListPDF } from '../lib/generatePanelListPDF';
 import { generateMonthlyPanelReport } from '../lib/generateMonthlyPanelReport';
 import PanelForm from './forms/PanelForm';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 
@@ -49,8 +48,6 @@ export default function PanelsNew() {
 
   const [dialogOpen,   setDialogOpen]   = useState(false);
   const [editingPanel, setEditingPanel] = useState<any>(null);
-  const [quickOpen, setQuickOpen] = useState(false);
-  const [quickPanel, setQuickPanel] = useState<any>(null);
 
   const reportCustomerName = searchParams.get('customerName');
   const reportDistrictName = searchParams.get('districtName');
@@ -351,16 +348,11 @@ export default function PanelsNew() {
                   </TableRow>
                 ) : (
                   filteredPanels.map(panel => (
-                    <TableRow
-                      key={panel.row_id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => { setQuickPanel(panel); setQuickOpen(true); }}
-                    >
+                    <TableRow key={panel.row_id} className="hover:bg-gray-50">
                       <TableCell className="font-medium">
                         <Link
                           to={`/panels/${panel.row_id}`}
                           className="flex items-center gap-1 text-blue-600 hover:underline"
-                          onClick={e => e.stopPropagation()}
                         >
                           {panel['serial#']}
                           <ExternalLink className="w-3 h-3" />
@@ -387,8 +379,11 @@ export default function PanelsNew() {
                       <TableCell className="text-sm">{panel.date_updated}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); openEdit(panel); }}>
+                          <Button size="sm" variant="outline" onClick={() => openEdit(panel)}>
                             <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleDelete(panel.row_id)}>
+                            <Trash className="w-4 h-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -399,24 +394,6 @@ export default function PanelsNew() {
             </Table>
           </CardContent>
         </Card>
-
-        {/* Quick view dialog for row click */}
-        <Dialog open={quickOpen} onOpenChange={(open) => { setQuickOpen(open); if (!open) setQuickPanel(null); }}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Panel {quickPanel?.['serial#'] || ''}</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-3 mt-2 text-sm">
-              <div><strong>Type:</strong> {quickPanel?.panel_type || '-'}</div>
-              <div><strong>Status:</strong> <StatusBadge status={quickPanel?.panel_status} /></div>
-              <div><strong>XC Base:</strong> {quickPanel?.xc_base || '-'}</div>
-              <div><strong>Customer:</strong> {quickPanel?.customerName || 'Not assigned'}</div>
-              <div><strong>District:</strong> {quickPanel?.districtName || '-'}</div>
-              <div><strong>FW Version:</strong> {quickPanel?.shootingfw || '-'}</div>
-              <div><strong>Last Updated:</strong> {quickPanel?.date_updated || '-'}</div>
-            </div>
-          </DialogContent>
-        </Dialog>
 
         {/* Add / Edit Dialog */}
         <PanelForm
