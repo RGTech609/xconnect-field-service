@@ -1,0 +1,14 @@
+{
+  "table": "components",
+  "appsheet_table": "Components",
+  "mode": "full-overwrite",
+  "match_on": "row_id",
+  "column_map": {
+    "Failed Component": "failed_component",
+    "Vendor": "vendor"
+  },
+  "fk_resolution": {},
+  "date_fields": [],
+  "datetime_fields": [],
+  "enum_normalize": {}
+}
