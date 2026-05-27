@@ -1,0 +1,13 @@
+{
+  "table": "vendors",
+  "appsheet_table": "Vendors",
+  "mode": "preserve-edits",
+  "match_on": "row_id",
+  "column_map": {
+    "Vendor": "vendor"
+  },
+  "fk_resolution": {},
+  "date_fields": [],
+  "datetime_fields": [],
+  "enum_normalize": {}
+}
