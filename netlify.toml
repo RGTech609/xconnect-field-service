@@ -26,3 +26,8 @@
   to = "/.netlify/functions/slack-bridge-health"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
