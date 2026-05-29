@@ -1,10 +1,10 @@
-import { Outlet } from 'react-router';
+import { Outlet, Navigate } from 'react-router';
 import { useAuth } from './lib/auth-context';
 // Notice the added /ui/ and the lowercase 's' here!
-import Sidebar from './components/ui/sidebar'; 
+import Sidebar from './components/ui/sidebar';
 
 export default function Root() {
-  const { loading } = useAuth();
+  const { loading, user } = useAuth();
 
   // Keep your loading state while auth initializes
   if (loading) {
@@ -15,6 +15,12 @@ export default function Root() {
     );
   }
 
+  // No active session — send the user to the sign-in page. /login and /setup
+  // are mounted outside of Root so they remain reachable.
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       {/* 1. Inject your new Sidebar component */}
@@ -22,7 +28,7 @@ export default function Root() {
 
       {/* 2. Main Content Area */}
       {/* The new Sidebar is fixed and 240px wide, so we push the main content right by 240px */}
-      <main 
+      <main
         className="flex-1 overflow-auto transition-colors duration-200"
         style={{ marginLeft: 240, minHeight: '100vh' }}
       >
