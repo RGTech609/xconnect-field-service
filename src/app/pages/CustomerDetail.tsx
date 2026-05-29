@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 export default function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +51,9 @@ export default function CustomerDetail() {
   }
 
   const { customer, districts, kpis } = data;
+  const isSqm = user?.role === 'sqm';
+  const customerNameParam = encodeURIComponent(customer?.customer || '');
+  const linkBase = customerNameParam ? `?customerName=${customerNameParam}` : '';
 
   return (
     <div className="p-8">
@@ -74,119 +77,131 @@ export default function CustomerDetail() {
         </div>
 
         {/* KPIs */}
-        <div className="grid md:grid-cols-4 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Field Visits</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.visitCount}</p>
-                  <p className="text-xs text-gray-500 mt-1">{kpis.totalVisitHours}h total • {kpis.avgVisitHours}h avg</p>
+        <div className={`grid ${isSqm ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4 mb-6`}>
+          <Link to={`/field-visits${linkBase}`} className="block focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg">
+            <Card className="hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Field Visits</p>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.visitCount}</p>
+                    <p className="text-xs text-gray-500 mt-1">{kpis.totalVisitHours}h total • {kpis.avgVisitHours}h avg</p>
+                  </div>
+                  <Clock className="w-8 h-8 text-blue-500" />
                 </div>
-                <Clock className="w-8 h-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Incidents</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.totalIncidents}</p>
-                  <p className="text-xs text-gray-500 mt-1">{kpis.xcCausedYes} XC caused</p>
+          <Link to={`/incidents${linkBase}`} className="block focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg">
+            <Card className="hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Incidents</p>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.totalIncidents}</p>
+                    <p className="text-xs text-gray-500 mt-1">{kpis.xcCausedYes} XC caused</p>
+                  </div>
+                  <AlertTriangle className="w-8 h-8 text-orange-500" />
                 </div>
-                <AlertTriangle className="w-8 h-8 text-orange-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Panels</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.totalPanels}</p>
-                  <p className="text-xs text-gray-500 mt-1">Total panels</p>
+          <Link to={`/panels${linkBase}`} className="block focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg">
+            <Card className="hover:shadow-md hover:border-blue-300 transition-all cursor-pointer h-full">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Panels</p>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.totalPanels}</p>
+                    <p className="text-xs text-gray-500 mt-1">Total panels</p>
+                  </div>
+                  <Package className="w-8 h-8 text-purple-500" />
                 </div>
-                <Package className="w-8 h-8 text-purple-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Barrels Sold</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.totalBarrels.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 mt-1">Total barrels</p>
+          {!isSqm && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Barrels Sold</p>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.totalBarrels.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">Total barrels</p>
+                  </div>
+                  <TrendingUp className="w-8 h-8 text-green-500" />
                 </div>
-                <TrendingUp className="w-8 h-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Additional Sales Metric */}
-        <div className="grid md:grid-cols-1 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Stages Sold</p>
-                  <p className="text-2xl font-bold text-gray-900">{kpis.totalStages.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 mt-1">Total stages</p>
+        {!isSqm && (
+          <div className="grid md:grid-cols-1 gap-4 mb-6">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Stages Sold</p>
+                    <p className="text-2xl font-bold text-gray-900">{kpis.totalStages.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500 mt-1">Total stages</p>
+                  </div>
+                  <BarChart3 className="w-8 h-8 text-blue-500" />
                 </div>
-                <BarChart3 className="w-8 h-8 text-blue-500" />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Performance Metrics */}
+        {!isSqm && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Performance Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 10,000 Barrels</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">XC Caused Incidents:</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {kpis.totalBarrels > 0 ? ((kpis.xcCausedYes / kpis.totalBarrels) * 10000).toFixed(2) : '0.00'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Percentage:</span>
+                      <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerBarrelPct.toFixed(2)}%</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 1,000 Stages</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">XC Caused Incidents:</span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {kpis.totalStages > 0 ? ((kpis.xcCausedYes / kpis.totalStages) * 1000).toFixed(2) : '0.00'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Percentage:</span>
+                      <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerStagePct.toFixed(2)}%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Performance Metrics */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Performance Metrics
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 10,000 Barrels</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">XC Caused Incidents:</span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {kpis.totalBarrels > 0 ? ((kpis.xcCausedYes / kpis.totalBarrels) * 10000).toFixed(2) : '0.00'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Percentage:</span>
-                    <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerBarrelPct.toFixed(2)}%</span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 1,000 Stages</h4>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">XC Caused Incidents:</span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {kpis.totalStages > 0 ? ((kpis.xcCausedYes / kpis.totalStages) * 1000).toFixed(2) : '0.00'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Percentage:</span>
-                    <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerStagePct.toFixed(2)}%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        )}
 
         {/* Districts */}
         <Card>
