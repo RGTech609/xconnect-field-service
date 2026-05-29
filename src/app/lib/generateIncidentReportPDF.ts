@@ -3,6 +3,9 @@ import {
   XC_GREEN, XC_DARK, XC_BORDER, GRAY_TEXT,
   MARGIN, CONT_W, PAGE_H,
 } from './pdfUtils';
+import { resolveEvidenceList, type IncidentReportImage } from './incidentPdfImages';
+
+export type { IncidentReportImage } from './incidentPdfImages';
 
 export interface IncidentReportOptions {
   incident:    Record<string, any>;
@@ -11,7 +14,16 @@ export interface IncidentReportOptions {
   customerMap: Record<string, any>;
   districtMap: Record<string, string>;
   returnBlob?: boolean;
+  /**
+   * Optional explicit list of images (with captions) to include in the
+   * "Visual Evidence" section. When provided, takes precedence over the
+   * legacy `incident.image1`/`incident.image2` fields. Pass an empty
+   * array to skip the section entirely.
+   */
+  selectedImages?: IncidentReportImage[];
 }
+
+const MAX_IMAGE_H = 140; // mm — cap so very tall images don't blow up the layout
 
 async function addImagePreserved(doc: any, url: string, x: number, y: number, targetW: number): Promise<number> {
   if (!url) return 0;
@@ -20,14 +32,19 @@ async function addImagePreserved(doc: any, url: string, x: number, y: number, ta
     img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
-        const calculatedH = targetW * (img.height / img.width);
-        if (y + calculatedH > PAGE_H - 20) { resolve(0); return; }
+        let drawW = targetW;
+        let drawH = targetW * (img.height / img.width);
+        if (drawH > MAX_IMAGE_H) {
+          drawH = MAX_IMAGE_H;
+          drawW = drawH * (img.width / img.height);
+        }
+        if (y + drawH > PAGE_H - 20) { resolve(0); return; }
         let fmt = 'JPEG';
         if (url.toLowerCase().includes('.png'))  fmt = 'PNG';
         if (url.toLowerCase().includes('.gif'))  fmt = 'GIF';
         if (url.toLowerCase().includes('.webp')) fmt = 'WEBP';
-        doc.addImage(img, fmt, x, y, targetW, calculatedH);
-        resolve(calculatedH);
+        doc.addImage(img, fmt, x, y, drawW, drawH);
+        resolve(drawH);
       } catch { resolve(0); }
     };
     img.onerror = () => resolve(0);
@@ -41,7 +58,7 @@ function fmtDate(val?: string): string {
 }
 
 export async function generateIncidentReportPDF(opts: IncidentReportOptions): Promise<Blob | void> {
-  const { incident: r, listMap, vendorMap, customerMap, districtMap, returnBlob = false } = opts;
+  const { incident: r, listMap, vendorMap, customerMap, districtMap, returnBlob = false, selectedImages } = opts;
   const doc = await loadJsPDF();
 
   const colW = CONT_W / 2;
@@ -258,20 +275,20 @@ export async function generateIncidentReportPDF(opts: IncidentReportOptions): Pr
   // ══════════════════════════════════════════════════════════════════════════════
   // 7. Visual Evidence
   // ══════════════════════════════════════════════════════════════════════════════
-  const evidence = [
-    { url: r.image1, label: 'Image 1' },
-    { url: r.image2, label: 'Image 2' },
-  ].filter(e => e.url);
+  const evidence = resolveEvidenceList(r, selectedImages);
 
   if (evidence.length) {
     checkPage(60);
     y = drawSectionHeading(doc, 'Visual Evidence', y);
 
     for (const item of evidence) {
+      // Reserve space for caption (≈6mm) plus a reasonable image area; the
+      // helper will skip the image if it would still overflow the page.
       checkPage(90);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...XC_DARK);
-      doc.text(item.label, MARGIN, y);
-      y += 3;
+      const captionLines = doc.splitTextToSize(item.label, CONT_W);
+      captionLines.forEach((line: string, i: number) => doc.text(line, MARGIN, y + (i * 5)));
+      y += (captionLines.length * 5) + 1;
       const h = await addImagePreserved(doc, item.url, MARGIN, y, 110);
       if (h > 0) {
         y += h + 12;

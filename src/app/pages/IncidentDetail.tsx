@@ -26,6 +26,8 @@ import {
 } from '../lib/incidentReportStorage';
 import IncidentForm from './forms/IncidentForm';
 import ImageUpload from '../components/ImageUpload';
+import IncidentPdfImagePicker from '../components/IncidentPdfImagePicker';
+import type { IncidentReportImage } from '../lib/generateIncidentReportPDF';
 import { normalizeStatus, canMarkReportSent } from '../lib/incidentWorkflow';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -140,6 +142,10 @@ export default function IncidentDetail() {
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [pdfTick,        setPdfTick]        = useState(0); // forces re-render on generate
 
+  // Image picker shown before each PDF generation
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerVersion, setPickerVersion] = useState<'preliminary' | 'final' | null>(null);
+
   useEffect(() => {
     if (id && accessToken) loadAll();
   }, [id, accessToken]);
@@ -251,12 +257,21 @@ export default function IncidentDetail() {
     || incident?.customer_district || 'N/A';
 
   // ── PDF helpers ────────────────────────────────────────────────────────────
-  const handleGeneratePDF = async (version: 'preliminary' | 'final') => {
+  const openPdfPicker = (version: 'preliminary' | 'final') => {
     if (!incident) return;
     if (!incident.event_id) {
       toast.error('Cannot save report — incident is missing event_id');
       return;
     }
+    setPickerVersion(version);
+    setPickerOpen(true);
+  };
+
+  const handleGeneratePDF = async (
+    version: 'preliminary' | 'final',
+    selectedImages: IncidentReportImage[],
+  ) => {
+    if (!incident || !incident.event_id) return;
     const genKey = `${incident.row_id}-${version}`;
     setGeneratingPDF(genKey);
     try {
@@ -273,6 +288,7 @@ export default function IncidentDetail() {
         vendorMap:  vendorMap,
         customerMap: custMapForPDF,
         districtMap: districtMap,
+        selectedImages,
         returnBlob: true,
       }) as Blob;
 
@@ -288,6 +304,8 @@ export default function IncidentDetail() {
         return [inserted, ...filtered];
       });
       setPdfTick(t => t + 1);
+      setPickerOpen(false);
+      setPickerVersion(null);
       toast.success(`${version === 'preliminary' ? 'Preliminary' : 'Final'} report saved`);
     } catch (err: any) {
       console.error(err);
@@ -494,7 +512,7 @@ export default function IncidentDetail() {
                       variant={has ? 'outline' : 'default'}
                       className={!has ? 'bg-gray-900 text-white hover:bg-gray-800 gap-1.5' : 'gap-1.5'}
                       disabled={generatingPDF === genKey}
-                      onClick={() => handleGeneratePDF(version)}>
+                      onClick={() => openPdfPicker(version)}>
                       {generatingPDF === genKey
                         ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Generating…</>
                         : <><FileText className="w-3.5 h-3.5" />{has ? `Regen ${label}` : `Generate ${label}`}</>}
@@ -765,7 +783,7 @@ export default function IncidentDetail() {
                         variant={has ? 'outline' : 'default'}
                         className={`h-7 px-2 text-xs gap-1 ${!has ? 'bg-gray-900 text-white hover:bg-gray-800' : ''}`}
                         disabled={generatingPDF === genKey}
-                        onClick={() => handleGeneratePDF(version)}>
+                        onClick={() => openPdfPicker(version)}>
                         {generatingPDF === genKey
                           ? <><RefreshCw className="w-3 h-3 animate-spin" /> Generating…</>
                           : <><FileText className="w-3 h-3" />{has ? 'Regenerate' : 'Generate'}</>}
@@ -874,6 +892,22 @@ export default function IncidentDetail() {
         incident={incident}
         currentUser={user}
       />
+
+      {/* ── PDF Image Picker ── */}
+      {pickerVersion && incident?.row_id && (
+        <IncidentPdfImagePicker
+          open={pickerOpen}
+          onClose={() => { setPickerOpen(false); setPickerVersion(null); }}
+          incidentRowId={incident.row_id}
+          baseUrl={`https://${projectId}.supabase.co/functions/v1/make-server-64775d98`}
+          publicAnonKey={publicAnonKey}
+          actionLabel={pickerVersion === 'preliminary'
+            ? 'Generate Preliminary Report'
+            : 'Generate Final Report'}
+          generating={generatingPDF === `${incident.row_id}-${pickerVersion}`}
+          onConfirm={(selected) => handleGeneratePDF(pickerVersion, selected)}
+        />
+      )}
 
       {/* ── PDF Preview Modal ── */}
       <Dialog open={pdfPreviewOpen} onOpenChange={setPdfPreviewOpen}>
