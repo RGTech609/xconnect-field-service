@@ -9,29 +9,29 @@
  *   database-migrations/incident_reports_storage.sql
  */
 import { supabase } from './supabase';
+import {
+  INCIDENT_REPORTS_BUCKET,
+  buildStorageMarker,
+  isStorageMarker,
+  reportTypeFor,
+  sanitizeEventId,
+  type IncidentReportRow,
+  type IncidentReportVersion,
+} from './incidentReportStorage.core';
 
-export const INCIDENT_REPORTS_BUCKET = 'incident-reports';
+export {
+  INCIDENT_REPORTS_BUCKET,
+  STORAGE_URL_SCHEME,
+  buildStorageMarker,
+  isStorageMarker,
+  pickReport,
+} from './incidentReportStorage.core';
+export type {
+  IncidentReportRow,
+  IncidentReportVersion,
+} from './incidentReportStorage.core';
+
 const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
-
-export type IncidentReportVersion = 'preliminary' | 'final';
-
-export type IncidentReportRow = {
-  row_id: string;
-  event_id: string;
-  report_type: string;
-  report_version?: string | null;
-  file_url: string | null;
-  file_path?: string | null;
-  file_name: string | null;
-  generated_at: string | null;
-  generated_by: string | null;
-};
-
-const reportTypeFor = (v: IncidentReportVersion) =>
-  v === 'preliminary' ? 'Preliminary' : 'Final';
-
-const sanitizeEventId = (eventId: string) =>
-  String(eventId).replace(/[^A-Za-z0-9_-]/g, '_');
 
 /**
  * Upload a generated PDF to Supabase Storage and record it in
@@ -91,7 +91,10 @@ export async function uploadIncidentReport(params: {
     event_id: String(eventId),
     report_type: reportType,
     file_path: path,
-    file_url: null as string | null,
+    // `file_url` is NOT NULL in the existing schema; populate it with an
+    // internal sentinel so storage-backed rows satisfy the constraint
+    // without colliding with real public URLs (which start with http(s)://).
+    file_url: buildStorageMarker(path),
     file_name: fileName,
     generated_by: generatedBy || null,
     generated_at: new Date().toISOString(),
@@ -122,8 +125,9 @@ export async function uploadIncidentReport(params: {
 /**
  * Resolve a previewable/downloadable URL for a stored report.
  * - If file_path is present, mint a short-lived signed URL.
- * - Otherwise fall back to file_url (used by legacy AppSheet originals
- *   whose public URLs were imported directly).
+ * - Otherwise fall back to file_url for legacy AppSheet originals whose
+ *   public URLs were imported directly. Sentinel `storage://...` markers
+ *   are not valid URLs and are skipped.
  */
 export async function getIncidentReportUrl(
   report: Pick<IncidentReportRow, 'file_path' | 'file_url'>,
@@ -138,7 +142,7 @@ export async function getIncidentReportUrl(
     }
     return data.signedUrl;
   }
-  if (report.file_url) return report.file_url;
+  if (report.file_url && !isStorageMarker(report.file_url)) return report.file_url;
   throw new Error('Report has no file_path or file_url');
 }
 
@@ -182,16 +186,4 @@ export async function listIncidentReportsForEvents(
     (out[k] ||= []).push(row);
   }
   return out;
-}
-
-/**
- * Convenience: find the current Preliminary or Final row in a list of reports.
- */
-export function pickReport(
-  reports: IncidentReportRow[] | undefined,
-  version: IncidentReportVersion,
-): IncidentReportRow | undefined {
-  if (!reports) return undefined;
-  const target = reportTypeFor(version);
-  return reports.find(r => r.report_type === target);
 }
