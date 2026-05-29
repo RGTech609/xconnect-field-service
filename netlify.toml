@@ -1,0 +1,28 @@
+[build]
+  command = "pnpm build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  # The _slack-bridge directory holds shared modules used by the slack-*
+  # functions; underscore-prefixed entries are excluded from deployment as
+  # functions but remain available as imports.
+
+[[redirects]]
+  from = "/slack/events"
+  to = "/.netlify/functions/slack-events"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/slack/interactivity"
+  to = "/.netlify/functions/slack-interactivity"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/slack/health"
+  to = "/.netlify/functions/slack-bridge-health"
+  status = 200
+  force = true
