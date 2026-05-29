@@ -202,20 +202,26 @@ export default function Sidebar() {
           <button
             onClick={signOut}
             title="Sign out"
+            aria-label="Sign out"
             style={{
+              flex: 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: 6,
               padding: '7px 10px',
               borderRadius: 8,
               border: `1px solid ${isDark ? '#1e293b' : '#e2e8f0'}`,
-              background: 'transparent',
-              color: isDark ? '#64748b' : '#94a3b8',
+              background: isDark ? '#1e293b' : '#f8fafc',
+              color: isDark ? '#94a3b8' : '#64748b',
               cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 500,
               transition: 'all 0.15s',
             }}
           >
             <LogOut size={13} />
+            Sign out
           </button>
         </div>
       </div>
