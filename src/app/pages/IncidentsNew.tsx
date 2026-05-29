@@ -20,7 +20,8 @@ import {
   subWeeks, subMonths,
 } from 'date-fns';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
-import { generateIncidentReportPDF } from '../lib/generateIncidentReportPDF';
+import { generateIncidentReportPDF, type IncidentReportImage } from '../lib/generateIncidentReportPDF';
+import IncidentPdfImagePicker from '../components/IncidentPdfImagePicker';
 import { normalizeStatus, canMarkReportSent } from '../lib/incidentWorkflow';
 import {
   uploadIncidentReport,
@@ -149,6 +150,10 @@ export default function IncidentsNew() {
   const [generatingPDF,   setGeneratingPDF]   = useState<string | null>(null);
   const [pdfPreviewUrl,   setPdfPreviewUrl]   = useState('');
   const [pdfPreviewOpen,  setPdfPreviewOpen]  = useState(false);
+  // Image picker shown before each PDF generation
+  const [pickerOpen,      setPickerOpen]      = useState(false);
+  const [pickerVersion,   setPickerVersion]   = useState<'preliminary' | 'final' | null>(null);
+  const [pickerIncident,  setPickerIncident]  = useState<any>(null);
   // Reports loaded from Supabase Storage / incident_reports table, keyed by event_id
   const [reportsByEvent,  setReportsByEvent]  = useState<Record<string, IncidentReportRow[]>>({});
 
@@ -402,7 +407,21 @@ export default function IncidentsNew() {
     }
   };
 
-  const handleGeneratePDF = async (inc: any, version: 'preliminary' | 'final') => {
+  const openPdfPicker = (inc: any, version: 'preliminary' | 'final') => {
+    if (!inc?.event_id) {
+      toast.error('Cannot save report — incident is missing event_id');
+      return;
+    }
+    setPickerIncident(inc);
+    setPickerVersion(version);
+    setPickerOpen(true);
+  };
+
+  const handleGeneratePDF = async (
+    inc: any,
+    version: 'preliminary' | 'final',
+    selectedImages: IncidentReportImage[],
+  ) => {
     const key = `${inc.row_id}-${version}`;
     if (!inc.event_id) {
       toast.error('Cannot save report — incident is missing event_id');
@@ -419,6 +438,7 @@ export default function IncidentsNew() {
         vendorMap:  apiVendorMap,
         customerMap,
         districtMap,
+        selectedImages,
         returnBlob: true,
       }) as Blob;
 
@@ -440,6 +460,9 @@ export default function IncidentsNew() {
         setViewingIncident((prev: any) => ({ ...prev, _pdfTick: Date.now() }));
       }
 
+      setPickerOpen(false);
+      setPickerVersion(null);
+      setPickerIncident(null);
       toast.success(`${version === 'preliminary' ? 'Preliminary' : 'Final'} report saved — click Preview or Download`);
     } catch (err: any) {
       console.error(err);
@@ -849,7 +872,7 @@ export default function IncidentsNew() {
                                 <Button size="sm" variant={has ? 'outline' : 'default'}
                                   className={`h-7 px-2 text-xs ${!has ? 'bg-gray-900 text-white hover:bg-gray-800' : ''}`}
                                   disabled={generatingPDF === genKey}
-                                  onClick={() => handleGeneratePDF(r, version)}>
+                                  onClick={() => openPdfPicker(r, version)}>
                                   {generatingPDF === genKey
                                     ? <><RefreshCw className="w-3 h-3 mr-1 animate-spin" /> Generating…</>
                                     : <><FileText className="w-3 h-3 mr-1" />{has ? 'Regenerate' : 'Generate'}</>}
@@ -890,6 +913,22 @@ export default function IncidentsNew() {
         </Dialog>
 
       </div>
+
+      {/* ── PDF Image Picker ── */}
+      {pickerVersion && pickerIncident?.row_id && (
+        <IncidentPdfImagePicker
+          open={pickerOpen}
+          onClose={() => { setPickerOpen(false); setPickerVersion(null); setPickerIncident(null); }}
+          incidentRowId={pickerIncident.row_id}
+          baseUrl={`https://${projectId}.supabase.co/functions/v1/make-server-64775d98`}
+          publicAnonKey={publicAnonKey}
+          actionLabel={pickerVersion === 'preliminary'
+            ? 'Generate Preliminary Report'
+            : 'Generate Final Report'}
+          generating={generatingPDF === `${pickerIncident.row_id}-${pickerVersion}`}
+          onConfirm={(selected) => handleGeneratePDF(pickerIncident, pickerVersion, selected)}
+        />
+      )}
 
       {/* ── PDF Preview Modal ── */}
       <Dialog open={pdfPreviewOpen} onOpenChange={setPdfPreviewOpen}>
