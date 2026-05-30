@@ -6,7 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.2";
 import { apiRoutes } from "./api-routes.tsx";
 import { aiAssistRoutes } from "./ai-assist.tsx";
 import { initializeIncidentImagesBucket } from "./upload-handler.tsx";
-import { adminExists, getUserFromRequest } from "./auth-helpers.tsx";
+import { adminExists, getUserFromRequest, userRole } from "./auth-helpers.tsx";
 
 const app = new Hono();
 
@@ -252,7 +252,9 @@ app.post("/make-server-64775d98/signin", async (c) => {
         id: data.user.id,
         email: data.user.email,
         name: data.user.user_metadata.name || '',
-        role: data.user.user_metadata.role || 'sqm',
+        // Authoritative role lives in app_metadata (not user-editable);
+        // userRole() falls back to user_metadata for legacy accounts.
+        role: userRole(data.user),
       }
     });
   } catch (error) {
@@ -294,7 +296,10 @@ app.post("/make-server-64775d98/signup", async (c) => {
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
+      // Role is authoritative in app_metadata (not self-editable by the user).
+      // Keep name in user_metadata; mirror role there for legacy reads.
       user_metadata: { name, role: requestedRole },
+      app_metadata: { role: requestedRole },
       // Automatically confirm the user's email since an email server hasn't been configured.
       email_confirm: true
     });
@@ -360,7 +365,7 @@ app.get("/make-server-64775d98/session", async (c) => {
         id: user.id,
         email: user.email,
         name: user.user_metadata.name || '',
-        role: user.user_metadata.role || 'sqm',
+        role: userRole(user),
       }
     });
   } catch (error) {
