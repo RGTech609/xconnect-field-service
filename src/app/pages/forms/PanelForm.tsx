@@ -140,7 +140,9 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
       verified:         fd.get('verified')         || 'N',
       activity:         fd.get('activity')         || 'N',
       comments:         fd.get('comments')         || null,
-      updated_by:       fd.get('updated_by')       || currentUser?.name || null,
+      // Always stamp the user performing this save (create OR edit) — never
+      // carry over the prior editor or rely on a typed value.
+      updated_by:       currentUser?.name || currentUser?.email || null,
       date_updated:     new Date().toLocaleDateString(),
     };
 
