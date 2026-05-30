@@ -271,6 +271,12 @@ export default function Executive() {
   const [summary, setSummary] = useState<Summary | null>(null);
   // Raw incidents power the filterable, client-recomputed sections.
   const [incidents, setIncidents] = useState<IncidentRow[]>([]);
+  // Lookup maps: incidents store customer / district as row_ids, so we resolve
+  // them to display names everywhere (filter dropdowns, top tables, search).
+  const [customerNames, setCustomerNames] = useState<Record<string, string>>({});
+  const [districtNames, setDistrictNames] = useState<Record<string, string>>({});
+  const custName = (id: string | null | undefined) => (id ? customerNames[id] || id : "—");
+  const distName = (id: string | null | undefined) => (id ? districtNames[id] || id : "—");
 
   // ── Filters (Customer / District / Date range) ──────────────────────────────
   const [filterCustomer, setFilterCustomer] = useState("");
@@ -284,7 +290,7 @@ export default function Executive() {
     (async () => {
       try {
         setLoading(true);
-        const [s, inc] = await Promise.all([
+        const [s, inc, cust, dist] = await Promise.all([
           // Global KPIs that are NOT incident-derived (panels, barrels, stages,
           // visits) stay sourced from the summary view — they are not scoped by
           // the customer/district/date filters.
@@ -295,14 +301,26 @@ export default function Executive() {
             .select(
               "event_id,date_incident,incident_status,incident_severity,xc_caused,customer,customer_district,stage_number"
             ),
+          // Lookup tables to resolve customer / district row_ids to names.
+          supabase.from("customers").select("row_id,customer"),
+          supabase.from("districts").select("row_id,customer_district"),
         ]);
 
         if (cancelled) return;
         if (s.error) throw s.error;
         if (inc.error) throw inc.error;
+        if (cust.error) throw cust.error;
+        if (dist.error) throw dist.error;
+
+        const custMap: Record<string, string> = {};
+        for (const r of (cust.data as any[]) || []) custMap[r.row_id] = r.customer;
+        const distMap: Record<string, string> = {};
+        for (const r of (dist.data as any[]) || []) distMap[r.row_id] = r.customer_district;
 
         setSummary((s.data as Summary) || null);
         setIncidents((inc.data as IncidentRow[]) || []);
+        setCustomerNames(custMap);
+        setDistrictNames(distMap);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "Failed to load executive data");
       } finally {
@@ -318,8 +336,8 @@ export default function Executive() {
   const customerOptions = useMemo(() => {
     const set = new Set<string>();
     for (const i of incidents) if (i.customer) set.add(i.customer);
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [incidents]);
+    return Array.from(set).sort((a, b) => custName(a).localeCompare(custName(b)));
+  }, [incidents, customerNames]);
 
   // Districts available for the chosen customer (or all customers).
   const districtOptions = useMemo(() => {
@@ -328,8 +346,8 @@ export default function Executive() {
       if (filterCustomer && i.customer !== filterCustomer) continue;
       if (i.customer_district) set.add(i.customer_district);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [incidents, filterCustomer]);
+    return Array.from(set).sort((a, b) => distName(a).localeCompare(distName(b)));
+  }, [incidents, filterCustomer, districtNames]);
 
   const filtersActive = !!(filterCustomer || filterDistrict || dateFrom || dateTo || search.trim());
 
@@ -353,8 +371,8 @@ export default function Executive() {
       if (q) {
         const hay = [
           i.event_id,
-          i.customer,
-          i.customer_district,
+          custName(i.customer),
+          distName(i.customer_district),
           i.incident_severity,
           i.incident_status,
           i.xc_caused,
@@ -366,7 +384,7 @@ export default function Executive() {
       }
       return true;
     });
-  }, [incidents, filterCustomer, filterDistrict, dateFrom, dateTo, search]);
+  }, [incidents, filterCustomer, filterDistrict, dateFrom, dateTo, search, customerNames, districtNames]);
 
   // ── Recompute incident-derived metrics from the filtered set ────────────────
   // Definitions mirror the original Supabase views exactly:
@@ -443,11 +461,11 @@ export default function Executive() {
   const customers = useMemo<CustomerRow[]>(() => {
     const map = new Map<string, CustomerRow>();
     for (const i of filteredIncidents) {
-      const name = i.customer || "—";
-      let r = map.get(name);
+      const id = i.customer || "—";
+      let r = map.get(id);
       if (!r) {
-        r = { customer_id: name, customer_name: name, total_incidents: 0, xc_caused_incidents: 0, total_stages: 0 };
-        map.set(name, r);
+        r = { customer_id: id, customer_name: custName(i.customer), total_incidents: 0, xc_caused_incidents: 0, total_stages: 0 };
+        map.set(id, r);
       }
       r.total_incidents++;
       if (isXc(i)) r.xc_caused_incidents++;
@@ -457,24 +475,24 @@ export default function Executive() {
     return Array.from(map.values())
       .sort((a, b) => b.xc_caused_incidents - a.xc_caused_incidents || b.total_incidents - a.total_incidents)
       .slice(0, 8);
-  }, [filteredIncidents]);
+  }, [filteredIncidents, customerNames]);
 
   // Top districts (matches v_exec_district_incidents shape).
   const districts = useMemo<DistrictRow[]>(() => {
     const map = new Map<string, DistrictRow>();
     for (const i of filteredIncidents) {
-      const name = i.customer_district || "—";
-      let r = map.get(name);
+      const id = i.customer_district || "—";
+      let r = map.get(id);
       if (!r) {
         r = {
-          district_id: name,
-          customer_district: name,
-          customer_name: i.customer || "",
+          district_id: id,
+          customer_district: distName(i.customer_district),
+          customer_name: custName(i.customer),
           total_incidents: 0,
           xc_caused_incidents: 0,
           stages_per_xc_incident: 0,
         };
-        map.set(name, r);
+        map.set(id, r);
       }
       r.total_incidents++;
       if (isXc(i)) r.xc_caused_incidents++;
@@ -489,7 +507,7 @@ export default function Executive() {
     return rows
       .sort((a, b) => b.xc_caused_incidents - a.xc_caused_incidents || b.total_incidents - a.total_incidents)
       .slice(0, 8);
-  }, [filteredIncidents]);
+  }, [filteredIncidents, customerNames, districtNames]);
 
   const xcRate = useMemo(() => {
     if (!filteredIncidents.length) return null;
@@ -627,7 +645,7 @@ export default function Executive() {
             <option value="">All customers</option>
             {customerOptions.map((c) => (
               <option key={c} value={c}>
-                {c}
+                {custName(c)}
               </option>
             ))}
           </select>
@@ -644,7 +662,7 @@ export default function Executive() {
             <option value="">All districts</option>
             {districtOptions.map((d) => (
               <option key={d} value={d}>
-                {d}
+                {distName(d)}
               </option>
             ))}
           </select>
