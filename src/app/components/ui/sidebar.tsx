@@ -17,7 +17,7 @@ import { useTheme } from '../../lib/theme-context';
 import {
   LayoutDashboard, Users, ClipboardList, AlertTriangle,
   Cpu, TrendingUp, FileBarChart,
-  Sun, Moon, LogOut, Map, FileText,
+  Sun, Moon, LogOut, Map, FileText, BarChart3,
 } from 'lucide-react';
 
 type Role = 'admin' | 'sqm';
@@ -28,6 +28,7 @@ const NAV_GROUPS = [
     label: 'Overview',
     items: [
       { path: '/',          label: 'Dashboard',    icon: LayoutDashboard, roles: ['admin', 'sqm'] as Role[] },
+      { path: '/executive',  label: 'Executive',    icon: BarChart3,       roles: ['admin'] as Role[] },
     ],
   },
   {

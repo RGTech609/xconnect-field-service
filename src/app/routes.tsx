@@ -23,6 +23,7 @@ import FieldVisitMap from './pages/FieldVisitMap';
 import TechnicalBulletin from './pages/TechnicalBulletin';
 import TechnicalBulletins from './pages/TechnicalBulletins';
 import TechnicalBulletinSetup from './pages/TechnicalBulletinSetup';
+import Executive from './pages/Executive';
 
 function DashboardSwitch() {
   const { user } = useAuth();
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: "panels/:id", Component: PanelDetail },
       { path: "sales", Component: Sales },
       { path: "reports", Component: Reports },
+      { path: "executive", element: <AdminOnly><Executive /></AdminOnly> },
       { path: "technical-bulletins", Component: TechnicalBulletins },
       { path: "technical-bulletin/:id", element: <AdminOnly><TechnicalBulletin /></AdminOnly> },
       { path: "technical-bulletin-setup", element: <AdminOnly><TechnicalBulletinSetup /></AdminOnly> },
