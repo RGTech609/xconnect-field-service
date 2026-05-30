@@ -74,7 +74,7 @@ export default function PanelDetail() {
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Panel Details</h1>
-              <p className="text-gray-600 mt-2">{panel['serial#'] || 'N/A'}</p>
+              <p className="text-gray-600 mt-2">{panel.serial_number || 'N/A'}</p>
             </div>
             <Badge className={getStatusColor(panel.panel_status)}>
               {panel.panel_status || 'Unknown'}
@@ -95,7 +95,7 @@ export default function PanelDetail() {
               <div><label className="text-sm font-medium text-gray-500">Plus Panel</label>
                 <p className="text-gray-900 mt-1">{panel.plus_panel || 'N/A'}</p></div>
               <div><label className="text-sm font-medium text-gray-500">Unit #</label>
-                <p className="text-gray-900 mt-1">{panel['unit#'] || 'N/A'}</p></div>
+                <p className="text-gray-900 mt-1">{panel.unit_number || 'N/A'}</p></div>
               <div><label className="text-sm font-medium text-gray-500">SO #</label>
                 <p className="text-gray-900 mt-1">{panel['so#'] || 'N/A'}</p></div>
             </CardContent>
@@ -137,7 +137,7 @@ export default function PanelDetail() {
               <div><label className="text-sm font-medium text-gray-500">RMA</label>
                 <p className="text-gray-900 mt-1">{panel.rma || 'N/A'}</p></div>
               <div><label className="text-sm font-medium text-gray-500">Spare?</label>
-                <p className="text-gray-900 mt-1">{panel['spare?'] || 'N/A'}</p></div>
+                <p className="text-gray-900 mt-1">{panel.is_spare || 'N/A'}</p></div>
             </CardContent>
           </Card>
 
