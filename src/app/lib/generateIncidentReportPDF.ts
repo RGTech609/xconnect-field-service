@@ -88,7 +88,14 @@ async function fetchAsDataUrl(url: string): Promise<{ dataUrl: string; mime: str
   }
 }
 
-async function addImagePreserved(doc: any, url: string, x: number, y: number, targetW: number): Promise<number> {
+async function addImagePreserved(
+  doc: any,
+  url: string,
+  x: number,
+  y: number,
+  targetW: number,
+  maxH: number = MAX_IMAGE_H,
+): Promise<number> {
   if (!url) return 0;
 
   // 1. Pull the bytes ourselves so we don't depend on the <img> CORS dance and
@@ -106,11 +113,14 @@ async function addImagePreserved(doc: any, url: string, x: number, y: number, ta
         let drawW = targetW;
         let drawH = targetW * (img.height / img.width);
         if (!isFinite(drawH) || drawH <= 0) { resolve(0); return; }
-        if (drawH > MAX_IMAGE_H) {
-          drawH = MAX_IMAGE_H;
+        // Constrain by the caller-provided height budget (space left on the
+        // current page) as well as the global cap. Scale width to match so
+        // tall/portrait images are shrunk to fit instead of being dropped.
+        const heightCap = Math.min(maxH, MAX_IMAGE_H);
+        if (drawH > heightCap) {
+          drawH = heightCap;
           drawW = drawH * (img.width / img.height);
         }
-        if (y + drawH > PAGE_H - 20) { resolve(0); return; }
         const fmt = pickPdfImageFormat(fetched?.mime ?? null, url);
         // When we have a data URL prefer it (more reliable across jsPDF
         // versions); fall back to the raw <img> element.
@@ -377,14 +387,22 @@ export async function generateIncidentReportPDF(opts: IncidentReportOptions): Pr
     y = drawSectionHeading(doc, 'Visual Evidence', y);
 
     for (const item of evidence) {
-      // Reserve space for caption (≈6mm) plus a reasonable image area; the
-      // helper will skip the image if it would still overflow the page.
-      checkPage(90);
+      // Caption needs ~6mm; reserve a small block for caption + a minimum
+      // image area so we don't strand a caption at the very bottom of a page.
+      const captionHeight = 6;
+      const MIN_IMAGE_AREA = 80; // mm — if less than this is left, start a new page
+      checkPage(captionHeight + MIN_IMAGE_AREA);
+
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...XC_DARK);
       const captionLines = doc.splitTextToSize(item.label, CONT_W);
       captionLines.forEach((line: string, i: number) => doc.text(line, MARGIN, y + (i * 5)));
       y += (captionLines.length * 5) + 1;
-      const h = await addImagePreserved(doc, item.url, MARGIN, y, 110);
+
+      // Height budget = whatever room is left on the current page (minus a
+      // bottom margin). The helper scales tall images down to fit instead of
+      // dropping them, so every selected image renders.
+      const availableH = PAGE_H - 20 - y;
+      const h = await addImagePreserved(doc, item.url, MARGIN, y, 110, availableH);
       if (h > 0) {
         y += h + 12;
       } else {
