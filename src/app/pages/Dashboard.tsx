@@ -369,6 +369,7 @@ export default function Dashboard() {
   const displayName = user?.name && user.name !== "Admin User" ? user.name : null;
   const [timeFilter, setTimeFilter] = useState("all_time");
   const [incStatusFilter, setIncStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -557,6 +558,32 @@ export default function Dashboard() {
     fetchAll();
   }, [timeFilter]);
 
+  // ── Search across the Incident Review list ──────────────────────────────────
+  // Matches event id, customer, district, category, severity, status, and the
+  // notes/description/investigation text.
+  const visibleIncidents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return enriched;
+    return enriched.filter((inc) => {
+      const hay = [
+        inc.event_id,
+        inc.customerName,
+        inc.districtName,
+        inc.event_category,
+        inc.incident_severity,
+        normalizeStatus(inc.incident_status),
+        inc.xc_caused,
+        inc.notes,
+        inc.incident_description,
+        inc.investigation,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [enriched, search]);
+
   const totalIncidents = enriched.length;
 
   return (
@@ -645,9 +672,38 @@ export default function Dashboard() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "28px 0 12px", flexWrap: "wrap", gap: 10 }}>
         <h2 style={{ ...styles.sectionTitle, margin: 0 }}>
           Incident Review
-          {!loading && <span style={styles.sectionBadge}>{enriched.length} of {incidents.length} incidents</span>}
+          {!loading && <span style={styles.sectionBadge}>{visibleIncidents.length} of {incidents.length} incidents</span>}
         </h2>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {/* Search */}
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "#94a3b8", pointerEvents: "none" }}>🔍</span>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search incidents…"
+              style={{
+                padding: "6px 28px 6px 30px",
+                borderRadius: 20,
+                border: "1px solid #e2e8f0",
+                fontSize: 12.5,
+                color: "#0f172a",
+                outline: "none",
+                minWidth: 200,
+                fontFamily: "inherit",
+              }}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                title="Clear search"
+                style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 13, color: "#94a3b8", lineHeight: 1, padding: 0 }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
           {(["all", ...INCIDENT_STATUSES] as const).map(opt => {
             const active = incStatusFilter === opt;
             const c = opt !== "all" ? (STATUS_COLORS[opt] ?? { bg: "#eef2ff", color: "#4f46e5" }) : { bg: "#eef2ff", color: "#4f46e5" };
@@ -676,13 +732,15 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
-      ) : enriched.length === 0 ? (
+      ) : visibleIncidents.length === 0 ? (
         <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "40px", textAlign: "center", color: "#64748b", fontSize: 14, marginBottom: 28 }}>
-          No XC-caused incidents found for this time period.
+          {search.trim()
+            ? `No incidents match “${search.trim()}”.`
+            : "No XC-caused incidents found for this time period."}
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14, marginBottom: 28 }}>
-          {enriched.map(inc => {
+          {visibleIncidents.map(inc => {
             const sevCfg = SEVERITY_COLORS[inc.incident_severity] ?? { bg: "#f1f5f9", color: "#475569" };
             const normStatus = normalizeStatus(inc.incident_status);
             const staCfg = STATUS_COLORS[normStatus]    ?? { bg: "#f1f5f9", color: "#475569" };

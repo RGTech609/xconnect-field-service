@@ -10,6 +10,7 @@ import {
   Printer,
   ExternalLink,
   Filter,
+  Search,
   X,
 } from "lucide-react";
 
@@ -276,6 +277,7 @@ export default function Executive() {
   const [filterDistrict, setFilterDistrict] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -329,25 +331,42 @@ export default function Executive() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [incidents, filterCustomer]);
 
-  const filtersActive = !!(filterCustomer || filterDistrict || dateFrom || dateTo);
+  const filtersActive = !!(filterCustomer || filterDistrict || dateFrom || dateTo || search.trim());
 
   function clearFilters() {
     setFilterCustomer("");
     setFilterDistrict("");
     setDateFrom("");
     setDateTo("");
+    setSearch("");
   }
 
-  // ── Apply filters to the raw incidents ──────────────────────────────────────
+  // ── Apply filters + search to the raw incidents ─────────────────────────────
+  // Search matches event id, customer, district, category, severity and status.
   const filteredIncidents = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return incidents.filter((i) => {
       if (filterCustomer && i.customer !== filterCustomer) return false;
       if (filterDistrict && i.customer_district !== filterDistrict) return false;
       if (dateFrom && (!i.date_incident || i.date_incident < dateFrom)) return false;
       if (dateTo && (!i.date_incident || i.date_incident > dateTo)) return false;
+      if (q) {
+        const hay = [
+          i.event_id,
+          i.customer,
+          i.customer_district,
+          i.incident_severity,
+          i.incident_status,
+          i.xc_caused,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [incidents, filterCustomer, filterDistrict, dateFrom, dateTo]);
+  }, [incidents, filterCustomer, filterDistrict, dateFrom, dateTo, search]);
 
   // ── Recompute incident-derived metrics from the filtered set ────────────────
   // Definitions mirror the original Supabase views exactly:
@@ -578,6 +597,21 @@ export default function Executive() {
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#0f172a", fontWeight: 700, fontSize: 14, paddingBottom: 6 }}>
           <Filter size={16} /> Filters
         </div>
+
+        {/* Search */}
+        <label style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12, fontWeight: 600, color: "#64748b" }}>
+          Search
+          <div style={{ position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", pointerEvents: "none" }} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Customer, district, event ID…"
+              style={{ ...inputStyle, paddingLeft: 30, minWidth: 220 }}
+            />
+          </div>
+        </label>
 
         {/* Customer */}
         <label style={{ display: "flex", flexDirection: "column", gap: 5, fontSize: 12, fontWeight: 600, color: "#64748b" }}>
