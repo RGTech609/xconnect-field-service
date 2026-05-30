@@ -6,7 +6,8 @@ import {
 import { getSerial } from './serialUtils';
 
 export interface PanelRow {
-  'serial#': string;
+  serial_number?: string;
+  'serial#'?: string;
   panel_type: string;
   panel_status: string;
   xc_base: string;

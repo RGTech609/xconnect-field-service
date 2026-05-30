@@ -27,7 +27,15 @@ const baseUrl  = `https://${projectId}.supabase.co/functions/v1/make-server-6477
 const headers  = { 'Authorization': `Bearer ${publicAnonKey}`, 'Content-Type': 'application/json' };
 
 // ── Fixed value dropdowns ─────────────────────────────────────────────────────
-const PANEL_TYPE_OPTS   = ['Digital Shooting Panel', 'Communication Panel', 'Surface Tester'];
+const PANEL_TYPE_OPTS   = ['Surface Tester', 'Master Safe Panel', 'Digital Shooting Panel', 'P1000', 'P2000', 'P2500', 'Toolstring Simulator', 'Pressure Box'];
+
+// ── Conditional field rules (which panel types / statuses each field applies to) ──
+const GUI_TYPES        = ['P1000', 'P2000', 'P2500'];
+const GUI_STATUSES     = ['Leased', 'Loaned'];
+const showPlusPanel    = (type: string) => type === 'P2500';
+const showGui          = (type: string, status: string) => GUI_TYPES.includes(type) && GUI_STATUSES.includes(status);
+const showSurfaceFw    = (type: string) => type === 'Surface Tester';
+const showShootingFw   = (type: string) => type === 'Digital Shooting Panel';
 const PANEL_STATUS_OPTS = ['At Facility', 'Leased', 'In Repair', 'Loaned', 'Sold'];
 const XC_BASE_OPTS      = ['Denver', 'Midland', 'Williston'];
 const YES_NO_OPTS       = ['Yes', 'No'];
@@ -70,6 +78,8 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
   const [epCompanies, setEpCompanies] = useState<string[]>([]);
   const [custId,      setCustId]      = useState('');
   const [saving,      setSaving]      = useState(false);
+  const [panelType,   setPanelType]   = useState('');
+  const [panelStatus, setPanelStatus] = useState('At Facility');
 
   useEffect(() => {
     if (!open) return;
@@ -93,31 +103,40 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
     else setCustId('');
   }, [panel, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    setPanelType(panel?.panel_type || '');
+    setPanelStatus(panel?.panel_status || 'At Facility');
+  }, [panel, open]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
     const fd = new FormData(e.currentTarget);
 
+    const type   = (fd.get('panel_type')   as string) || '';
+    const status = (fd.get('panel_status') as string) || '';
+
     const payload: Record<string, any> = {
-      'serial#':        fd.get('serial')          || '',
-      panel_type:       fd.get('panel_type')       || null,
-      plus_panel:       fd.get('plus_panel')       || null,
-      panel_status:     fd.get('panel_status')     || null,
+      serial_number:    fd.get('serial')          || '',
+      panel_type:       type                       || null,
+      plus_panel:       showPlusPanel(type) ? (fd.get('plus_panel') || null) : null,
+      panel_status:     status                     || null,
       xc_base:          fd.get('xc_base')          || null,
       received_date:    fd.get('received_date')    || null,
       customer:         custId                     || null,
       customer_district:fd.get('customer_district')|| null,
       operating_company:fd.get('operating_company')|| null,
-      'unit#':          fd.get('unit')             || null,
+      unit_number:      fd.get('unit')             || null,
       'so#':            fd.get('so')               || null,
-      gui_version:      fd.get('gui')              || null,
-      shootingfw:       fd.get('shootingfw')       || null,
+      gui_version:      showGui(type, status) ? (fd.get('gui') || null) : null,
+      shootingfw:       showShootingFw(type) ? (fd.get('shootingfw') || null) : null,
       wl_controlfw:     fd.get('wl_controlfw')     || null,
       loggingfw:        fd.get('loggingfw')        || null,
-      surfacefw:        fd.get('surfacefw')        || null,
+      surfacefw:        showSurfaceFw(type) ? (fd.get('surfacefw') || null) : null,
       tracking_info:    fd.get('tracking_info')    || null,
       rma:              fd.get('rma')              || null,
-      'spare?':         fd.get('spare')            || null,
+      is_spare:         fd.get('spare')            || null,
       verified:         fd.get('verified')         || 'N',
       activity:         fd.get('activity')         || 'N',
       comments:         fd.get('comments')         || null,
@@ -149,7 +168,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? `Edit Panel ${panel?.['serial#']}` : 'Add New XFire Panel'}</DialogTitle>
+          <DialogTitle>{editing ? `Edit Panel ${panel?.serial_number}` : 'Add New XFire Panel'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-6 gap-y-4 mt-2">
@@ -158,7 +177,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           <Section title="Panel Identity" />
 
           <F label="Serial #" required>
-            <Input name="serial" defaultValue={panel?.['serial#'] || ''} required
+            <Input name="serial" defaultValue={panel?.serial_number || ''} required
               readOnly={editing}
               className={editing ? 'bg-gray-50 cursor-not-allowed' : ''}
               placeholder="e.g. SH230519-2v3" />
@@ -178,6 +197,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
               </>
             ) : (
               <select name="panel_type" defaultValue={panel?.panel_type || ''}
+                onChange={e => setPanelType(e.target.value)}
                 className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
                 <option value="">— Select type —</option>
                 {PANEL_TYPE_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
@@ -185,21 +205,25 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             )}
           </F>
 
-          <F label="Plus Panel?">
-            <select name="plus_panel" defaultValue={panel?.plus_panel || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
-              <option value="">— Select —</option>
-              {YES_NO_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </F>
+          {showPlusPanel(panelType) && (
+            <F label="Plus Panel?">
+              <select name="plus_panel" defaultValue={panel?.plus_panel || ''}
+                className="w-full border border-gray-300 rounded-md p-2 text-sm">
+                <option value="">— Select —</option>
+                {YES_NO_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </F>
+          )}
 
           <F label="Unit #">
-            <Input name="unit" defaultValue={panel?.['unit#'] || ''} placeholder="e.g. 42" />
+            <Input name="unit" defaultValue={panel?.unit_number || ''} placeholder="e.g. 42" />
           </F>
 
-          <F label="GUI #">
-            <Input name="gui" defaultValue={panel?.gui_version || ''} />
-          </F>
+          {showGui(panelType, panelStatus) && (
+            <F label="GUI #">
+              <Input name="gui" defaultValue={panel?.gui_version || ''} />
+            </F>
+          )}
 
           <F label="SO #">
             <Input name="so" defaultValue={panel?.['so#'] || ''} />
@@ -210,6 +234,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
 
           <F label="Panel Status" required>
             <select name="panel_status" defaultValue={panel?.panel_status || 'At Facility'}
+              onChange={e => setPanelStatus(e.target.value)}
               className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
               <option value="">— Select status —</option>
               {PANEL_STATUS_OPTS.map(o => (
@@ -260,9 +285,11 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           {/* ── Firmware ── */}
           <Section title="Firmware Versions" />
 
-          <F label="Shooting FW">
-            <Input name="shootingfw" defaultValue={panel?.shootingfw || ''} placeholder="e.g. 3.2.1" />
-          </F>
+          {showShootingFw(panelType) && (
+            <F label="Shooting FW">
+              <Input name="shootingfw" defaultValue={panel?.shootingfw || ''} placeholder="e.g. 3.2.1" />
+            </F>
+          )}
 
           <F label="WL Control FW">
             <Input name="wl_controlfw" defaultValue={panel?.wl_controlfw || ''} />
@@ -272,9 +299,11 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             <Input name="loggingfw" defaultValue={panel?.loggingfw || ''} />
           </F>
 
-          <F label="Surface FW">
-            <Input name="surfacefw" defaultValue={panel?.surfacefw || ''} />
-          </F>
+          {showSurfaceFw(panelType) && (
+            <F label="Surface FW">
+              <Input name="surfacefw" defaultValue={panel?.surfacefw || ''} />
+            </F>
+          )}
 
           {/* ── Tracking ── */}
           <Section title="Tracking & Flags" />
@@ -288,7 +317,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           </F>
 
           <F label="Spare?">
-            <select name="spare" defaultValue={panel?.['spare?'] || ''}
+            <select name="spare" defaultValue={panel?.is_spare || ''}
               className="w-full border border-gray-300 rounded-md p-2 text-sm">
               <option value="">— Select —</option>
               {YES_NO_OPTS.map(o => <option key={o} value={o}>{o}</option>)}

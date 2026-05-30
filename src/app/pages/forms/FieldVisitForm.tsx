@@ -103,7 +103,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
       supabase.from('customers').select('row_id,customer').order('customer'),
       supabase.from('sqm').select('sq_manager').order('sq_manager'),
       supabase.from('ep').select('operating_company').order('operating_company'),
-      supabase.from('panels').select('"serial#",panel_type').order('"serial#"'),
+      supabase.from('panels').select('serial_number,panel_type').order('serial_number'),
     ]).then(([c, s, e, p]) => {
       setCustomers(c.data || []);
       setSqmReps((s.data || []).map((r: any) => r.sq_manager).filter((r: string) => r !== 'Pre-Tracking'));
