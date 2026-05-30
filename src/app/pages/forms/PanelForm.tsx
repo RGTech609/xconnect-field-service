@@ -252,7 +252,18 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           </F>
 
           <F label="Received Date">
-            <Input name="received_date" type="date" defaultValue={panel?.received_date || ''} />
+            {/* Received date is a historical fact: auto-populated to today when a
+                panel is first added, and locked thereafter (read-only on both
+                create and edit). readOnly inputs still submit their value via
+                FormData, so the auto-filled date is saved on create. */}
+            <Input
+              name="received_date"
+              type="date"
+              defaultValue={panel?.received_date || (editing ? '' : new Date().toISOString().slice(0, 10))}
+              readOnly
+              className="bg-gray-50 cursor-not-allowed"
+              title={editing ? 'Received date is locked after creation' : 'Auto-set to today. Cannot be edited.'}
+            />
           </F>
 
           {/* ── Assignment ── */}
@@ -339,7 +350,17 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           </F>
 
           <F label="Updated By">
-            <Input name="updated_by" defaultValue={panel?.updated_by || currentUser?.name || ''} />
+            {/* Auto-pulled from the logged-in user and locked — the person saving
+                the form is the one making the update, so this is never typed by
+                hand. readOnly inputs still submit, so the value is saved. The
+                handleSubmit fallback also defaults updated_by to currentUser. */}
+            <Input
+              name="updated_by"
+              value={currentUser?.name || currentUser?.email || ''}
+              readOnly
+              className="bg-gray-50 cursor-not-allowed"
+              title="Auto-set to the current user. Cannot be edited."
+            />
           </F>
 
           {/* ── Comments ── */}
