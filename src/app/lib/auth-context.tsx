@@ -163,6 +163,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role: data.user.user_metadata?.role || 'sqm',
       };
 
+      // Establish a REAL Supabase session on the shared client so that
+      // direct storage/database calls (e.g. uploading incident report PDFs)
+      // run as the `authenticated` role and satisfy RLS policies. Without
+      // this, the client keeps using the anon key and storage INSERTs fail
+      // with "new row violates row-level security policy".
+      if (data.access_token && data.refresh_token) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        });
+        if (sessionError) {
+          console.warn('Failed to set Supabase session:', sessionError.message);
+        }
+      }
+
       setUser(user);
       setAccessToken(data.access_token);
 

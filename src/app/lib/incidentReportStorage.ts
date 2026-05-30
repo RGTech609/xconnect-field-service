@@ -47,6 +47,18 @@ export async function uploadIncidentReport(params: {
   const { blob, eventId, version, generatedBy } = params;
   if (!eventId) throw new Error('eventId is required to upload a report');
 
+  // Saving a report to shared storage requires a real authenticated
+  // Supabase session (RLS gates the bucket on auth.role() = 'authenticated').
+  // The local dev "default-admin" auto-login is NOT a real session, so guard
+  // here with a clear message instead of a cryptic RLS rejection.
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    throw new Error(
+      'You must sign in with a real account (email/password or Google) to save reports. ' +
+      'The demo auto-login cannot upload to shared storage.'
+    );
+  }
+
   const reportType = reportTypeFor(version);
   const safeEventId = sanitizeEventId(eventId);
   const fileName = `Incident_${safeEventId}_${reportType}.pdf`;

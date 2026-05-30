@@ -247,6 +247,7 @@ app.post("/make-server-64775d98/signin", async (c) => {
 
     return c.json({ 
       access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
       user: {
         id: data.user.id,
         email: data.user.email,
