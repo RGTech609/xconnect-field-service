@@ -84,7 +84,7 @@ function SectionCard({
   const colClass =
     cols === 1 ? 'grid-cols-1' : cols === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2';
   return (
-    <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
       <header className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
         {description && (
@@ -1092,7 +1092,7 @@ export default function IncidentForm({
         />
 
         {/* Sticky footer actions — always visible regardless of scroll */}
-        <div className="flex justify-end gap-3 px-6 py-3 border-t bg-white dark:bg-gray-900 shrink-0">
+        <div className="flex justify-end gap-3 px-6 py-3 border-t bg-white dark:bg-gray-800 shrink-0">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>

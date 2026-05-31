@@ -293,7 +293,7 @@ export default function Customers() {
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
                   <Link to={`/customers/${customer.row_id}`} className="flex items-center gap-4 hover:opacity-80 transition-opacity">
                     {customer.customer_logo ? (
-                      <div className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm">
+                      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
                         <img 
                           src={customer.customer_logo} 
                           alt={customer.customer} 
@@ -301,7 +301,7 @@ export default function Customers() {
                         />
                       </div>
                     ) : (
-                      <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-sm">
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
                         <Building2 className="h-16 w-16 text-gray-400" />
                       </div>
                     )}
@@ -338,7 +338,7 @@ export default function Customers() {
                         <Link
                           key={district.row_id}
                           to={`/districts/${district.row_id}`}
-                          className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-900 block"
+                          className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800 block"
                         >
                           <div className="flex items-start justify-between gap-2 mb-3">
                             <div className="flex items-start gap-2">

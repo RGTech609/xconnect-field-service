@@ -65,7 +65,7 @@ export default function CustomerDetail() {
           </Button>
           <div className="flex items-start gap-4">
             {customer.customer_logo && (
-              <div className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border">
+              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border">
                 <img src={customer.customer_logo} alt={customer.customer} className="h-20 w-20 object-contain" />
               </div>
             )}
@@ -220,7 +220,7 @@ export default function CustomerDetail() {
                   <Link
                     key={district.row_id}
                     to={`/districts/${district.row_id}`}
-                    className="block border rounded-lg p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-900"
+                    className="block border rounded-lg p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-800"
                   >
                     <div className="flex items-start gap-2 mb-2">
                       <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />

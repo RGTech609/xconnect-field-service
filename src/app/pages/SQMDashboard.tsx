@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router";
 import { useAuth } from "../lib/auth-context";
+import { useTheme } from "../lib/theme-context";
 import { ClipboardList, AlertTriangle, Cpu, Map, ExternalLink } from "lucide-react";
 
 type TileProps = {
@@ -9,9 +10,12 @@ type TileProps = {
   subtitle: string;
   icon: React.ReactNode;
   accent: string;
+  isDark: boolean;
 };
 
-function PrimaryTile({ to, title, subtitle, icon, accent }: TileProps) {
+function PrimaryTile({ to, title, subtitle, icon, accent, isDark }: TileProps) {
+  const cardBg = isDark ? "#1e293b" : "#fff";
+  const cardBorder = isDark ? "#334155" : "#e2e8f0";
   return (
     <Link
       to={to}
@@ -22,23 +26,23 @@ function PrimaryTile({ to, title, subtitle, icon, accent }: TileProps) {
         gap: 16,
         padding: "28px 24px",
         borderRadius: 16,
-        background: "#fff",
-        border: "1px solid #e2e8f0",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+        background: cardBg,
+        border: `1px solid ${cardBorder}`,
+        boxShadow: isDark ? "0 1px 3px rgba(0,0,0,0.4)" : "0 1px 3px rgba(0,0,0,0.06)",
         textDecoration: "none",
-        color: "#0f172a",
+        color: isDark ? "#f1f5f9" : "#0f172a",
         minHeight: 180,
         transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
       }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 24px rgba(0,0,0,0.08)";
+        (e.currentTarget as HTMLElement).style.boxShadow = isDark ? "0 8px 24px rgba(0,0,0,0.5)" : "0 8px 24px rgba(0,0,0,0.08)";
         (e.currentTarget as HTMLElement).style.borderColor = accent;
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-        (e.currentTarget as HTMLElement).style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)";
-        (e.currentTarget as HTMLElement).style.borderColor = "#e2e8f0";
+        (e.currentTarget as HTMLElement).style.boxShadow = isDark ? "0 1px 3px rgba(0,0,0,0.4)" : "0 1px 3px rgba(0,0,0,0.06)";
+        (e.currentTarget as HTMLElement).style.borderColor = cardBorder;
       }}
     >
       <div
@@ -57,13 +61,15 @@ function PrimaryTile({ to, title, subtitle, icon, accent }: TileProps) {
       </div>
       <div>
         <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#64748b" }}>{subtitle}</div>
+        <div style={{ fontSize: 13, color: isDark ? "#94a3b8" : "#64748b" }}>{subtitle}</div>
       </div>
     </Link>
   );
 }
 
-function SecondaryLink({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) {
+function SecondaryLink({ to, label, icon, isDark }: { to: string; label: string; icon: React.ReactNode; isDark: boolean }) {
+  const bg = isDark ? "#1e293b" : "#fff";
+  const border = isDark ? "#334155" : "#e2e8f0";
   return (
     <Link
       to={to}
@@ -73,21 +79,21 @@ function SecondaryLink({ to, label, icon }: { to: string; label: string; icon: R
         gap: 8,
         padding: "10px 14px",
         borderRadius: 10,
-        background: "#fff",
-        border: "1px solid #e2e8f0",
+        background: bg,
+        border: `1px solid ${border}`,
         textDecoration: "none",
-        color: "#334155",
+        color: isDark ? "#cbd5e1" : "#334155",
         fontSize: 13,
         fontWeight: 500,
         transition: "background 0.15s, border-color 0.15s",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.background = "#f8fafc";
-        (e.currentTarget as HTMLElement).style.borderColor = "#cbd5e1";
+        (e.currentTarget as HTMLElement).style.background = isDark ? "#334155" : "#f8fafc";
+        (e.currentTarget as HTMLElement).style.borderColor = isDark ? "#475569" : "#cbd5e1";
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = "#fff";
-        (e.currentTarget as HTMLElement).style.borderColor = "#e2e8f0";
+        (e.currentTarget as HTMLElement).style.background = bg;
+        (e.currentTarget as HTMLElement).style.borderColor = border;
       }}
     >
       {icon}
@@ -99,6 +105,7 @@ function SecondaryLink({ to, label, icon }: { to: string; label: string; icon: R
 
 export default function SQMDashboard() {
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const displayName = user?.name && user.name !== "Admin User" ? user.name : null;
 
   return (
@@ -106,16 +113,16 @@ export default function SQMDashboard() {
       style={{
         padding: "32px 40px",
         fontFamily: "'DM Sans','Segoe UI',sans-serif",
-        background: "#f8fafc",
+        background: isDark ? "#0f172a" : "#f8fafc",
         minHeight: "100vh",
       }}
     >
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", margin: "0 0 4px" }}>
           {displayName ? `Welcome back, ${displayName}` : "Welcome back"}
         </h1>
-        <p style={{ fontSize: 14, color: "#64748b", margin: 0 }}>
+        <p style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#64748b", margin: 0 }}>
           Log field activity and check on panels and incidents.
         </p>
       </div>
@@ -135,6 +142,7 @@ export default function SQMDashboard() {
           subtitle="Log a new field visit"
           icon={<ClipboardList size={24} strokeWidth={2} />}
           accent="#10b981"
+          isDark={isDark}
         />
         <PrimaryTile
           to="/incidents?new=1"
@@ -142,6 +150,7 @@ export default function SQMDashboard() {
           subtitle="Report a new incident"
           icon={<AlertTriangle size={24} strokeWidth={2} />}
           accent="#ef4444"
+          isDark={isDark}
         />
         <PrimaryTile
           to="/panels"
@@ -149,18 +158,19 @@ export default function SQMDashboard() {
           subtitle="Browse or register a panel"
           icon={<Cpu size={24} strokeWidth={2} />}
           accent="#0ea5e9"
+          isDark={isDark}
         />
       </div>
 
       {/* Secondary quick-links */}
-      <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+      <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 700, color: isDark ? "#64748b" : "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase" }}>
         Quick Links
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-        <SecondaryLink to="/field-visits" label="View Field Visits" icon={<ClipboardList size={14} />} />
-        <SecondaryLink to="/incidents" label="View Incidents" icon={<AlertTriangle size={14} />} />
-        <SecondaryLink to="/panels" label="View Panels" icon={<Cpu size={14} />} />
-        <SecondaryLink to="/field-visit-map" label="Visit Map" icon={<Map size={14} />} />
+        <SecondaryLink to="/field-visits" label="View Field Visits" icon={<ClipboardList size={14} />} isDark={isDark} />
+        <SecondaryLink to="/incidents" label="View Incidents" icon={<AlertTriangle size={14} />} isDark={isDark} />
+        <SecondaryLink to="/panels" label="View Panels" icon={<Cpu size={14} />} isDark={isDark} />
+        <SecondaryLink to="/field-visit-map" label="Visit Map" icon={<Map size={14} />} isDark={isDark} />
       </div>
     </div>
   );
