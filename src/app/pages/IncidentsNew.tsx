@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Plus, Edit, Trash2, Eye, AlertTriangle, X, ExternalLink, FileText, Download, Send, CheckCircle2, RefreshCw, Search } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import IncidentForm from './forms/IncidentForm';
+import IncidentEvidenceImages from '../components/IncidentEvidenceImages';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import {
@@ -872,16 +873,9 @@ export default function IncidentsNew() {
                       </section>
                     )}
 
-                    {/* Visual Evidence */}
-                    {(r.image1 || r.image2) && (
-                      <section>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 border-b pb-1">Visual Evidence</p>
-                        <div className="grid grid-cols-2 gap-4">
-                          {r.image1 && <div><p className="text-xs text-gray-400 mb-1">Photo 1</p><img src={r.image1} alt="Evidence 1" className="rounded-lg border max-h-56 w-full object-contain bg-gray-50 dark:bg-gray-800/50" /></div>}
-                          {r.image2 && <div><p className="text-xs text-gray-400 mb-1">Photo 2</p><img src={r.image2} alt="Evidence 2" className="rounded-lg border max-h-56 w-full object-contain bg-gray-50 dark:bg-gray-800/50" /></div>}
-                        </div>
-                      </section>
-                    )}
+                    {/* Visual Evidence — photos live in images_legacy keyed by
+                        event_id; renders nothing (incl. heading) if there are none. */}
+                    <IncidentEvidenceImages title="Visual Evidence" eventId={r.event_id} inline={[r.image1, r.image2]} />
 
                     {/* Reports */}
                     <section>
