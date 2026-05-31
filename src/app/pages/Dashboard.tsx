@@ -66,6 +66,17 @@ function getDateRange(filter: string): { start: string | null; end: string | nul
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+// ── Time filter labels (human-readable, for banners/headings) ────────────────
+const TIME_FILTER_LABELS: Record<string, string> = {
+  this_week:    "this week",
+  last_week:    "last week",
+  this_month:   "this month",
+  last_month:   "last month",
+  this_quarter: "this quarter",
+  this_year:    "this year",
+  all_time:     "all time",
+};
+
 // ── Panel status config ───────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, { color: string; bg: string }> = {
   "At Facility": { color: "#22c55e", bg: "#f0fdf4" },
@@ -368,6 +379,7 @@ export default function Dashboard() {
   const role = user?.role as 'admin' | 'sqm' | undefined;
   const displayName = user?.name && user.name !== "Admin User" ? user.name : null;
   const [timeFilter, setTimeFilter] = useState("all_time");
+  const [meetingMode, setMeetingMode] = useState(false);
   const [incStatusFilter, setIncStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -383,6 +395,8 @@ export default function Dashboard() {
 
   // Incidents review
   const [incidents,      setIncidents]      = useState<any[]>([]);
+  // ALL incidents in the period (any fault) — only loaded in Monday Meeting mode.
+  const [allIncidents,   setAllIncidents]   = useState<any[]>([]);
   const [customerMap,    setCustomerMap]    = useState<Record<string, string>>({});
   const [districtMap,    setDistrictMap]    = useState<Record<string, string>>({});
   const [listMap,        setListMap]        = useState<Record<string, any>>({});
@@ -548,6 +562,20 @@ export default function Dashboard() {
         const incData = await fetchAllPages(incQuery);
         setIncidents(incData || []);
 
+        // ALL incidents in the period (any fault), for Monday Meeting mode.
+        // Only fetched when meeting mode is on — avoids extra load otherwise.
+        if (meetingMode) {
+          const allIncQuery = applyDates(
+            supabase.from("incidents").select("*")
+              .order("date_incident", { ascending: false }),
+            "date_incident"
+          );
+          const allIncData = await fetchAllPages(allIncQuery);
+          setAllIncidents(allIncData || []);
+        } else {
+          setAllIncidents([]);
+        }
+
       } catch (err: any) {
         console.error("Dashboard Error:", err);
         setError(err.message);
@@ -556,7 +584,7 @@ export default function Dashboard() {
       }
     }
     fetchAll();
-  }, [timeFilter]);
+  }, [timeFilter, meetingMode]);
 
   // ── Search across the Incident Review list ──────────────────────────────────
   // Matches event id, customer, district, category, severity, status, and the
@@ -586,6 +614,24 @@ export default function Dashboard() {
 
   const totalIncidents = enriched.length;
 
+  // ── All-incidents (any fault) for the Monday Meeting view ───────────────────
+  // Enriched with resolved names and sorted newest-first. Critical floats to
+  // the top within the same date so the most serious items lead the review.
+  const SEV_RANK: Record<string, number> = { Critical: 0, Moderate: 1, Low: 2 };
+  const allEnriched = useMemo(() => allIncidents
+    .map(inc => ({
+      ...inc,
+      customerName: customerMap[inc.customer]          || inc.customer          || "-",
+      districtName: districtMap[inc.customer_district] || inc.customer_district || "-",
+    }))
+    .sort((a, b) => {
+      const d = String(b.date_incident || "").localeCompare(String(a.date_incident || ""));
+      if (d !== 0) return d;
+      return (SEV_RANK[a.incident_severity] ?? 9) - (SEV_RANK[b.incident_severity] ?? 9);
+    }), [allIncidents, customerMap, districtMap]);
+
+  const periodLabel = TIME_FILTER_LABELS[timeFilter] ?? "this period";
+
   return (
     <div style={styles.page}>
       {error && <div style={styles.errorBanner}>⚠ Error loading data: {error}</div>}
@@ -596,16 +642,53 @@ export default function Dashboard() {
           <h1 style={styles.heading}>{displayName ? `Welcome back, ${displayName}!` : "Welcome back!"}</h1>
           <p style={styles.subheading}>Here's an overview of your company's performance</p>
         </div>
-        <select style={styles.filterSelect} value={timeFilter} onChange={e => setTimeFilter(e.target.value)} disabled={loading}>
-          <option value="this_week">This Week</option>
-          <option value="last_week">Last Week</option>
-          <option value="this_month">This Month</option>
-          <option value="last_month">Last Month</option>
-          <option value="this_quarter">This Quarter</option>
-          <option value="this_year">This Year</option>
-          <option value="all_time">All Time</option>
-        </select>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={() => {
+              const next = !meetingMode;
+              setMeetingMode(next);
+              // Entering meeting mode frames the review on last week in one click.
+              if (next && timeFilter !== "last_week") setTimeFilter("last_week");
+            }}
+            disabled={loading}
+            title="Frame the dashboard for your Monday team meeting: last week's KPIs, all incidents, and panel inventory"
+            style={{
+              padding: "10px 16px", borderRadius: 8, border: "1px solid",
+              borderColor: meetingMode ? "#4f46e5" : "#cbd5e1",
+              background: meetingMode ? "#4f46e5" : "#fff",
+              color: meetingMode ? "#fff" : "#334155",
+              fontSize: 14, fontWeight: 600, cursor: loading ? "wait" : "pointer",
+              fontFamily: "inherit", whiteSpace: "nowrap",
+            }}
+          >
+            📅 Monday Meeting{meetingMode ? " · On" : ""}
+          </button>
+          <select style={styles.filterSelect} value={timeFilter} onChange={e => setTimeFilter(e.target.value)} disabled={loading}>
+            <option value="this_week">This Week</option>
+            <option value="last_week">Last Week</option>
+            <option value="this_month">This Month</option>
+            <option value="last_month">Last Month</option>
+            <option value="this_quarter">This Quarter</option>
+            <option value="this_year">This Year</option>
+            <option value="all_time">All Time</option>
+          </select>
+        </div>
       </div>
+
+      {/* ── Monday Meeting agenda banner ── */}
+      {meetingMode && (
+        <div style={{ marginBottom: 24, background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 12, padding: "16px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <span style={{ fontSize: 18 }}>📅</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#3730a3" }}>Monday Meeting — reviewing {periodLabel}</span>
+          </div>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 13, color: "#4338ca" }}>
+            <span><strong>1.</strong> Prior-week KPIs ↓</span>
+            <span><strong>2.</strong> All incidents {periodLabel} ↓</span>
+            <span><strong>3.</strong> Panel inventory check ↓</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Needs My Review queue (director/admin only) ── */}
       {role === "admin" && !loading && reviewQueue.length > 0 && (
@@ -667,6 +750,75 @@ export default function Dashboard() {
           : panelStatuses.map(({ status, count, total }) => <PanelStatusCard key={status} status={status} count={count} total={total} />)}
       </div>
 
+
+      {/* ── All Incidents This Period (Monday Meeting mode only) ── */}
+      {meetingMode && (
+        <div style={{ marginBottom: 28 }}>
+          <h2 style={styles.sectionTitle}>
+            All Incidents — {periodLabel}
+            {!loading && <span style={styles.sectionBadge}>{allEnriched.length} total · any fault</span>}
+          </h2>
+          {loading ? (
+            <div style={{ ...styles.card, padding: 0 }}>
+              {[1,2,3].map(i => (
+                <div key={i} style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9" }}>
+                  <span style={{ ...styles.skeleton, width: "50%", height: 14, display: "block" }} />
+                </div>
+              ))}
+            </div>
+          ) : allEnriched.length === 0 ? (
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "32px", textAlign: "center", color: "#64748b", fontSize: 14 }}>
+              No incidents recorded {periodLabel}. 🎉
+            </div>
+          ) : (
+            <div style={{ ...styles.card, padding: 0, overflow: "hidden" }}>
+              {/* Column header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                <span style={{ minWidth: 64 }}>ID</span>
+                <span style={{ minWidth: 80 }}>Date</span>
+                <span style={{ flex: 1 }}>Customer / District</span>
+                <span style={{ minWidth: 78, textAlign: "center" }}>Severity</span>
+                <span style={{ minWidth: 56, textAlign: "center" }}>XC?</span>
+                <span style={{ minWidth: 100, textAlign: "center" }}>Status</span>
+                <span style={{ minWidth: 44 }} />
+              </div>
+              {allEnriched.map((inc, idx) => {
+                const sevCfg = SEVERITY_COLORS[inc.incident_severity] ?? { bg: "#f1f5f9", color: "#475569" };
+                const normStatus = normalizeStatus(inc.incident_status);
+                const staCfg = STATUS_COLORS[normStatus] ?? { bg: "#f1f5f9", color: "#475569" };
+                const xcCfg = XC_COLORS[inc.xc_caused] ?? { bg: "#f1f5f9", color: "#475569" };
+                return (
+                  <div key={inc.row_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderBottom: idx < allEnriched.length - 1 ? "1px solid #f1f5f9" : "none", fontSize: 13 }}>
+                    <span style={{ minWidth: 64, fontWeight: 700, color: "#3b82f6" }}>#{inc.event_id}</span>
+                    <span style={{ minWidth: 80, color: "#64748b", fontSize: 12 }}>
+                      {inc.date_incident ? new Date(inc.date_incident + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "—"}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{inc.customerName}</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{inc.districtName}</div>
+                    </div>
+                    <span style={{ minWidth: 78, textAlign: "center" }}>
+                      {inc.incident_severity ? <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20, background: sevCfg.bg, color: sevCfg.color }}>{inc.incident_severity}</span> : <span style={{ color: "#cbd5e1" }}>—</span>}
+                    </span>
+                    <span style={{ minWidth: 56, textAlign: "center" }}>
+                      {inc.xc_caused ? <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20, background: xcCfg.bg, color: xcCfg.color }}>{inc.xc_caused}</span> : <span style={{ color: "#cbd5e1" }}>—</span>}
+                    </span>
+                    <span style={{ minWidth: 100, textAlign: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20, background: staCfg.bg, color: staCfg.color }}>{normStatus || "—"}</span>
+                    </span>
+                    <button
+                      onClick={() => setModalIncident(inc)}
+                      style={{ minWidth: 44, padding: "3px 10px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 11, color: "#475569", fontWeight: 500 }}
+                    >
+                      View
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Incident Review Table ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "28px 0 12px", flexWrap: "wrap", gap: 10 }}>
