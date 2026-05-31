@@ -165,8 +165,8 @@ export default function FieldVisitMap() {
         {/* Header */}
         <div className="flex justify-between items-start mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Field Visit Map</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Field Visit Map</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">
               {loading ? 'Loading…' : `${filtered.length.toLocaleString()} visits with GPS coordinates`}
             </p>
           </div>
@@ -197,14 +197,14 @@ export default function FieldVisitMap() {
                 </Select>
               </div>
               {filtersActive && (
-                <button onClick={clearFilters} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300">
+                <button onClick={clearFilters} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-gray-300">
                   <X className="w-4 h-4" /> Clear
                 </button>
               )}
             </div>
 
             {/* Legend */}
-            <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-gray-100">
+            <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
               {PURPOSE_OPTS.map(p => (
                 <button key={p} onClick={() => setFilterPurpose(filterPurpose === p ? '' : p)}
                   className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full border transition-all ${filterPurpose === p ? 'border-gray-400 bg-gray-100' : 'border-transparent hover:border-gray-200'}`}>
@@ -257,7 +257,7 @@ export default function FieldVisitMap() {
                   {selected.xc_rep && <div><span className="text-gray-500 font-medium">SQM: </span>{selected.xc_rep}</div>}
                   <div><span className="text-gray-500 font-medium">Location: </span><span className="font-mono text-xs">{selected.lat_long}</span></div>
                   {selected.visit_summary && (
-                    <div className="pt-2 border-t border-gray-100 text-gray-600 text-xs leading-relaxed">
+                    <div className="pt-2 border-t border-gray-100 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs leading-relaxed">
                       {selected.visit_summary.slice(0, 200)}{selected.visit_summary.length > 200 ? '…' : ''}
                     </div>
                   )}
@@ -280,9 +280,9 @@ export default function FieldVisitMap() {
                     <div key={p} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1.5">
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: PURPOSE_COLORS[p], flexShrink: 0, display: 'inline-block' }} />
-                        <span className="text-gray-600">{p}</span>
+                        <span className="text-gray-600 dark:text-gray-300">{p}</span>
                       </div>
-                      <span className="font-semibold text-gray-900">{count}</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">{count}</span>
                     </div>
                   );
                 })}

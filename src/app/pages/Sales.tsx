@@ -191,8 +191,8 @@ export default function Sales() {
         {/* ── Header ── */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Sales Tracking</h1>
-            <p className="text-gray-600 mt-2">Track weekly barrel and stage sales per customer</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Sales Tracking</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Track weekly barrel and stage sales per customer</p>
           </div>
           {user?.role === 'admin' && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -339,7 +339,7 @@ export default function Sales() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Barrels</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Barrels</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{totalBarrels.toLocaleString()}</div>
@@ -350,7 +350,7 @@ export default function Sales() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Stages</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Stages</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{totalStages.toLocaleString()}</div>

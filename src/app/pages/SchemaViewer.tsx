@@ -51,8 +51,8 @@ export default function SchemaViewer() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Database Schema Viewer</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Database Schema Viewer</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">
             View your actual Supabase database tables, columns, types, and relationships
           </p>
         </div>
@@ -102,7 +102,7 @@ export default function SchemaViewer() {
                       </Badge>
                     ))}
                   </div>
-                  <p className="text-sm text-gray-600 mt-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-4">
                     Highlighted tables have data accessible through the API
                   </p>
                 </CardContent>
@@ -124,12 +124,12 @@ export default function SchemaViewer() {
                         {/* Columns */}
                         {schema.columns[tableName] && (
                           <div className="mb-4">
-                            <h4 className="font-medium text-sm text-gray-700 mb-2">Columns:</h4>
+                            <h4 className="font-medium text-sm text-gray-700 dark:text-gray-200 mb-2">Columns:</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               {schema.columns[tableName].map((col: any, idx: number) => (
                                 <div key={idx} className="flex items-center gap-2 text-sm">
                                   <Badge variant="outline">{col.name}</Badge>
-                                  <span className="text-gray-600">{col.type}</span>
+                                  <span className="text-gray-600 dark:text-gray-300">{col.type}</span>
                                 </div>
                               ))}
                             </div>
@@ -139,8 +139,8 @@ export default function SchemaViewer() {
                         {/* Sample Data */}
                         {schema.samples[tableName] && (
                           <div>
-                            <h4 className="font-medium text-sm text-gray-700 mb-2">Sample Row:</h4>
-                            <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto">
+                            <h4 className="font-medium text-sm text-gray-700 dark:text-gray-200 mb-2">Sample Row:</h4>
+                            <pre className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded text-xs overflow-auto">
                               {JSON.stringify(schema.samples[tableName], null, 2)}
                             </pre>
                           </div>

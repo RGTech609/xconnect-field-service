@@ -136,7 +136,7 @@ export default function Setup() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Already have an account?{' '}
               <a href="/login" className="text-blue-600 hover:underline">
                 Sign in

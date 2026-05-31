@@ -199,8 +199,8 @@ export default function FieldVisitsNew() {
         {/* ── Header ── */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Field Visits</h1>
-            <p className="text-gray-600 mt-2">Track all customer site visits by Service Quality Managers</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Field Visits</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Track all customer site visits by Service Quality Managers</p>
           </div>
           <Button onClick={() => { setEditingVisit(null); setDialogOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" />

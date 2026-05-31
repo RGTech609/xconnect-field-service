@@ -58,6 +58,39 @@ function fmtLocalDate(val?: string | null): string {
   catch { return val; }
 }
 
+// AppSheet stores link columns as a JSON object string like
+//   {"Url":"https://…","LinkText":"https://…"}
+// Older rows may hold a bare URL string, and many rows hold an empty
+//   {"Url":"","LinkText":""}. Extract the real https URL or return '' so the
+// UI can decide whether to show a link at all. (Previously the raw JSON blob
+// was used as an href, so the browser treated it as a relative path and
+// prefixed it with the app domain — the "pretense" the link picked up.)
+function parseSlackUrl(raw?: string | null): string {
+  if (!raw) return '';
+  const val = String(raw).trim();
+  if (!val) return '';
+  // JSON-wrapped (AppSheet) form.
+  if (val.startsWith('{')) {
+    try {
+      const obj = JSON.parse(val);
+      const url = (obj?.Url ?? obj?.url ?? obj?.LinkText ?? '').toString().trim();
+      return /^https?:\/\//i.test(url) ? url : '';
+    } catch { return ''; }
+  }
+  // Bare URL form.
+  return /^https?:\/\//i.test(val) ? val : '';
+}
+
+// Slack's bracket glyph rendered inline so we don't need an external asset.
+// lucide-react ships no Slack icon, so this matches the brand mark.
+function SlackIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
+    </svg>
+  );
+}
+
 function SeverityBadge({ severity }: { severity?: string }) {
   if (!severity) return null;
   const s = severity.toLowerCase();
@@ -87,7 +120,7 @@ function XcCausedBadge({ caused }: { caused?: string }) {
   return <Badge variant="outline">{caused}</Badge>;
 }
 
-const CAPTION = 'text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1';
+const CAPTION = 'text-xs text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wider mb-1';
 
 // Read-only display helpers. All incident editing now routes through the
 // IncidentForm modal so the status-machine validation + FK/enum logic in the
@@ -104,7 +137,7 @@ function Field({
   return (
     <div>
       <p className={CAPTION}>{label}</p>
-      <div className="text-sm text-gray-900">{content}</div>
+      <div className="text-sm text-gray-900 dark:text-gray-100">{content}</div>
     </div>
   );
 }
@@ -119,7 +152,7 @@ function TextBlock({
   return (
     <div>
       {label && <p className={CAPTION}>{label}</p>}
-      <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">{value}</p>
+      <p className="text-sm text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">{value}</p>
     </div>
   );
 }
@@ -321,6 +354,9 @@ export default function IncidentDetail() {
   const districtDisplay = incident?.districtName
     || (incident?.customer_district ? districtMap[incident.customer_district] : null)
     || incident?.customer_district || 'N/A';
+
+  // Real Slack thread URL (unwrapped from the AppSheet JSON blob).
+  const slackUrl = parseSlackUrl(incident?.slack_url);
 
   // ── PDF helpers ────────────────────────────────────────────────────────────
   const openPdfPicker = (version: 'preliminary' | 'final') => {
@@ -569,7 +605,7 @@ export default function IncidentDetail() {
     return (
       <div className="p-8">
         <div className="max-w-5xl mx-auto text-center py-12">
-          <p className="text-gray-500 mb-4">Incident not found</p>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">Incident not found</p>
           <Button onClick={() => navigate('/incidents')}>Back to Incidents</Button>
         </div>
       </div>
@@ -600,17 +636,17 @@ export default function IncidentDetail() {
       <div className="max-w-5xl mx-auto">
 
         {/* ── Hero Header ── */}
-        <div className="mb-6 rounded-xl border bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
+        <div className="mb-6 rounded-xl border dark:border-gray-700 bg-gradient-to-br from-slate-50 to-white dark:from-gray-800 dark:to-gray-900 p-6 shadow-sm">
           <Button variant="ghost" onClick={() => navigate('/incidents')} className="mb-4 -ml-2">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Incidents
           </Button>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <h1 className="text-3xl font-bold text-gray-900 truncate">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-50 truncate">
                 Incident #{incident.event_id || 'N/A'}
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-gray-600 dark:text-gray-300 mt-1">
                 {customerDisplay !== 'N/A' ? customerDisplay : 'Incident'}
                 {incident.well_name ? ` • ${incident.well_name}` : ''}
               </p>
@@ -625,6 +661,18 @@ export default function IncidentDetail() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {/* View in Slack — only shown when a real Slack thread URL exists.
+                  Styled with Slack's aubergine brand color + Slack glyph. */}
+              {slackUrl && (
+                <a href={slackUrl} target="_blank" rel="noopener noreferrer">
+                  <Button
+                    className="gap-2 bg-[#4A154B] text-white hover:bg-[#611f64] border-0"
+                    title="Open the Slack thread for this incident"
+                  >
+                    <SlackIcon className="w-4 h-4" /> View in Slack
+                  </Button>
+                </a>
+              )}
               {/* Single Edit entry point — opens the full IncidentForm modal so the
                   status-machine + FK/enum logic always applies. */}
               <Button onClick={() => setFormOpen(true)} className="gap-2">
@@ -725,8 +773,8 @@ export default function IncidentDetail() {
               <Field label="Operating Company" value={incident.operating_company} />
               <Field label="Field / Facility" value={incident.field_facility} />
               <Field label="Well Name" value={incident.well_name} />
-              <Field label="Stage #" value={incident['stage#']} />
-              <Field label="SO #" value={incident['so#']} />
+              <Field label="Stage #" value={incident['stage#'] ?? incident.stage_number} />
+              <Field label="SO #" value={incident['so#'] ?? incident.so_number} />
               <Field label="Field Visit">
                 {incident.field_visit_id ? (
                   linkedVisitRowId ? (
@@ -778,6 +826,16 @@ export default function IncidentDetail() {
               </div>
             </CardContent>
           </Card>
+
+          {/* ── AI Summary ── */}
+          {incident.ai_summary && (
+            <Card>
+              <CardHeader><CardTitle>AI Summary</CardTitle></CardHeader>
+              <CardContent>
+                <TextBlock label="" value={incident.ai_summary} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* ── Incident Narrative ── */}
           {(incident.incident_description || incident.investigation || incident.root_cause) && (
@@ -831,6 +889,34 @@ export default function IncidentDetail() {
             </Card>
           )}
 
+          {/* ── Review & Tracking ── surfaces remaining columns so the view is
+              complete (review trail, Slack/source metadata, identifiers). */}
+          {(incident.reviewed_by || incident.reviewed_at || incident.event_id ||
+            slackUrl || incident.slack_channel || incident.slack_ts) && (
+            <Card>
+              <CardHeader><CardTitle>Review &amp; Tracking</CardTitle></CardHeader>
+              <CardContent className="grid md:grid-cols-2 gap-4">
+                <Field label="Event ID" value={incident.event_id} />
+                <Field label="Reviewed By" value={incident.reviewed_by} />
+                <Field label="Reviewed At" value={incident.reviewed_at ? safeFmtDate(incident.reviewed_at, 'MMM d, yyyy h:mm a') : null} />
+                <Field label="Report Sent" value={incident.report_sent ? safeFmtDate(incident.report_sent, 'MMM d, yyyy') : null} />
+                <Field label="Slack Channel" value={incident.slack_channel} />
+                <Field label="Slack Thread">
+                  {slackUrl ? (
+                    <a
+                      href={slackUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[#4A154B] dark:text-[#d9a3db] hover:underline"
+                    >
+                      <SlackIcon className="w-3.5 h-3.5" /> Open thread
+                    </a>
+                  ) : null}
+                </Field>
+              </CardContent>
+            </Card>
+          )}
+
           {/* ── Evidence Images (polymorphic) ── */}
           {incident?.row_id && (
             <Card>
@@ -875,7 +961,7 @@ export default function IncidentDetail() {
                   No activity recorded for this incident yet.
                 </p>
               ) : (
-                <ol className="relative border-l border-gray-200 ml-2 space-y-6">
+                <ol className="relative border-l border-gray-200 dark:border-gray-700 ml-2 space-y-6">
                   {updates.map((u: any) => (
                     <li key={u.row_id} className="ml-4">
                       <div className="absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full border border-white bg-gray-400" />
@@ -887,18 +973,18 @@ export default function IncidentDetail() {
                           <Badge variant="outline" className="text-xs">{u.update_type}</Badge>
                         )}
                         {u.updated_by && (
-                          <span className="text-xs text-gray-600">by {u.updated_by}</span>
+                          <span className="text-xs text-gray-600 dark:text-gray-400">by {u.updated_by}</span>
                         )}
                       </div>
                       {u.note && (
-                        <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">{u.note}</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-200 mt-1 whitespace-pre-wrap">{u.note}</p>
                       )}
-                      {u.slack_url && (
+                      {parseSlackUrl(u.slack_url) && (
                         <a
-                          href={u.slack_url}
+                          href={parseSlackUrl(u.slack_url)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline mt-1"
+                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline mt-1"
                         >
                           View Slack thread
                           <ExternalLink className="w-3 h-3" />
@@ -928,13 +1014,13 @@ export default function IncidentDetail() {
                     ? 'Local-only — regenerate to share with team'
                     : 'Saved in shared storage';
                 return (
-                  <div key={version} className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50">
+                  <div key={version} className="flex items-center gap-3 px-4 py-3 rounded-lg border dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                     <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold shrink-0
                       ${color === 'amber' ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-blue-100 text-blue-700 border border-blue-300'}`}>
                       {label[0]}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-700">{label} Report</p>
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{label} Report</p>
                       <p className="text-xs text-gray-400">{status}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -967,7 +1053,7 @@ export default function IncidentDetail() {
               {/* Stored reports (AppSheet originals — generated preliminary/final are
                   rendered above and excluded here) */}
               {archiveReports.length > 0 && (
-                <div className="pt-2 mt-2 border-t border-gray-100">
+                <div className="pt-2 mt-2 border-t border-gray-100 dark:border-gray-700">
                   <p className="text-xs font-semibold uppercase text-gray-500 mb-2">
                     Archive ({archiveReports.length})
                   </p>
@@ -975,7 +1061,7 @@ export default function IncidentDetail() {
                     {archiveReports.map((r) => {
                       const isAppSheet = r.report_type === 'AppSheet Original';
                       return (
-                        <div key={r.row_id} className="flex items-center gap-3 px-4 py-2 rounded-lg border bg-white">
+                        <div key={r.row_id} className="flex items-center gap-3 px-4 py-2 rounded-lg border dark:border-gray-700 bg-white dark:bg-gray-800/40">
                           <span
                             className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold shrink-0 ${
                               isAppSheet
@@ -988,7 +1074,7 @@ export default function IncidentDetail() {
                             {isAppSheet ? 'A' : r.report_type[0]}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-700 truncate">
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                               {r.report_type}
                               {r.file_name && (
                                 <span className="text-xs text-gray-400 font-normal ml-2">
@@ -1032,9 +1118,9 @@ export default function IncidentDetail() {
               )}
 
               {/* Report Sent */}
-              <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg border dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-700">Report Sent to Customer</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Report Sent to Customer</p>
                   {incident.report_sent
                     ? <p className="text-xs text-emerald-600">Sent {safeFmtDate(incident.report_sent, 'MMMM d, yyyy')}</p>
                     : <p className="text-xs text-gray-400">Not yet sent</p>}
@@ -1117,13 +1203,13 @@ export default function IncidentDetail() {
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
-              <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+              <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
                 Update Type
               </Label>
               <select
                 value={updateType}
                 onChange={(e) => setUpdateType(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-md p-2 text-sm"
               >
                 {UPDATE_TYPES.map((t) => (
                   <option key={t} value={t}>{t}</option>
@@ -1131,7 +1217,7 @@ export default function IncidentDetail() {
               </select>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+              <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
                 Note <span className="text-red-500">*</span>
               </Label>
               <Textarea
@@ -1145,7 +1231,7 @@ export default function IncidentDetail() {
             <div className="text-xs text-gray-500">
               Posting as <span className="font-medium">{user?.name || user?.email || 'Unknown'}</span>
             </div>
-            <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+            <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
               <Button
                 type="button"
                 variant="outline"
@@ -1173,12 +1259,12 @@ export default function IncidentDetail() {
             <DialogTitle>Send Incident Report to Customer</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               The current final PDF will be re-generated and emailed to the
               recipients below. The send is recorded on this incident for audit.
             </div>
             <div>
-              <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+              <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
                 Recipient email(s) <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -1193,7 +1279,7 @@ export default function IncidentDetail() {
               </p>
             </div>
             <div>
-              <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+              <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
                 Optional message
               </Label>
               <Textarea
@@ -1204,13 +1290,13 @@ export default function IncidentDetail() {
               />
             </div>
             {incident?.report_sent && (
-              <div className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-md p-2">
+              <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-md p-2">
                 Last sent {safeFmtDate(incident.report_sent, 'MMM d, yyyy h:mm a')}
                 {incident.report_sent_to && <> to <span className="font-medium">{incident.report_sent_to}</span></>}
                 {incident.report_sent_by && <> by {incident.report_sent_by}</>}.
               </div>
             )}
-            <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+            <div className="flex justify-end gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
               <Button type="button" variant="outline"
                 onClick={() => setSendDialogOpen(false)}
                 disabled={sendingReport}>

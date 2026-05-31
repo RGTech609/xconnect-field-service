@@ -65,13 +65,13 @@ export default function CustomerDetail() {
           </Button>
           <div className="flex items-start gap-4">
             {customer.customer_logo && (
-              <div className="bg-white p-3 rounded-lg shadow-sm border">
+              <div className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border">
                 <img src={customer.customer_logo} alt={customer.customer} className="h-20 w-20 object-contain" />
               </div>
             )}
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{customer.customer}</h1>
-              <p className="text-gray-600 mt-2">{districts?.length || 0} Districts</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{customer.customer}</h1>
+              <p className="text-gray-600 dark:text-gray-300 mt-2">{districts?.length || 0} Districts</p>
             </div>
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function CustomerDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Field Visits</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.visitCount}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.visitCount}</p>
                     <p className="text-xs text-gray-500 mt-1">{kpis.totalVisitHours}h total • {kpis.avgVisitHours}h avg</p>
                   </div>
                   <Clock className="w-8 h-8 text-blue-500" />
@@ -99,7 +99,7 @@ export default function CustomerDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Incidents</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalIncidents}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalIncidents}</p>
                     <p className="text-xs text-gray-500 mt-1">{kpis.xcCausedYes} XC caused</p>
                   </div>
                   <AlertTriangle className="w-8 h-8 text-orange-500" />
@@ -114,7 +114,7 @@ export default function CustomerDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Panels</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalPanels}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalPanels}</p>
                     <p className="text-xs text-gray-500 mt-1">Total panels</p>
                   </div>
                   <Package className="w-8 h-8 text-purple-500" />
@@ -129,7 +129,7 @@ export default function CustomerDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Barrels Sold</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalBarrels.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalBarrels.toLocaleString()}</p>
                     <p className="text-xs text-gray-500 mt-1">Total barrels</p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-green-500" />
@@ -147,7 +147,7 @@ export default function CustomerDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Stages Sold</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalStages.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalStages.toLocaleString()}</p>
                     <p className="text-xs text-gray-500 mt-1">Total stages</p>
                   </div>
                   <BarChart3 className="w-8 h-8 text-blue-500" />
@@ -172,14 +172,14 @@ export default function CustomerDetail() {
                   <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 10,000 Barrels</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">XC Caused Incidents:</span>
-                      <span className="text-lg font-bold text-gray-900">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">XC Caused Incidents:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                         {kpis.totalBarrels > 0 ? ((kpis.xcCausedYes / kpis.totalBarrels) * 10000).toFixed(2) : '0.00'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Percentage:</span>
-                      <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerBarrelPct.toFixed(2)}%</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Percentage:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{kpis.incidentsPerBarrelPct.toFixed(2)}%</span>
                     </div>
                   </div>
                 </div>
@@ -187,14 +187,14 @@ export default function CustomerDetail() {
                   <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 1,000 Stages</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">XC Caused Incidents:</span>
-                      <span className="text-lg font-bold text-gray-900">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">XC Caused Incidents:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                         {kpis.totalStages > 0 ? ((kpis.xcCausedYes / kpis.totalStages) * 1000).toFixed(2) : '0.00'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Percentage:</span>
-                      <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerStagePct.toFixed(2)}%</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Percentage:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{kpis.incidentsPerStagePct.toFixed(2)}%</span>
                     </div>
                   </div>
                 </div>
@@ -220,13 +220,13 @@ export default function CustomerDetail() {
                   <Link
                     key={district.row_id}
                     to={`/districts/${district.row_id}`}
-                    className="block border rounded-lg p-4 hover:shadow-md transition-shadow bg-white"
+                    className="block border rounded-lg p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-900"
                   >
                     <div className="flex items-start gap-2 mb-2">
                       <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <h3 className="font-semibold text-gray-900">{district.customer_district}</h3>
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">{district.customer_district}</h3>
                     </div>
-                    <p className="text-sm text-gray-600">{district.customer_address || 'No address'}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{district.customer_address || 'No address'}</p>
                     {district.district_contact && (
                       <p className="text-sm text-gray-500 mt-2">{district.district_contact}</p>
                     )}

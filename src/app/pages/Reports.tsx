@@ -256,13 +256,13 @@ export default function Reports() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Performance Analytics</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">Performance Analytics</h1>
           <p className="text-gray-500 mt-1">Operational KPIs and production reliability metrics</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">
-            <Card className="shadow-sm border-gray-200">
+            <Card className="shadow-sm border-gray-200 dark:border-gray-700">
               <CardHeader className="bg-gray-50/50 border-b"><CardTitle className="text-sm">Report Filters</CardTitle></CardHeader>
               <CardContent className="pt-6 space-y-5">
                 <div>
@@ -318,12 +318,12 @@ export default function Reports() {
               </Card>
             ) : (
               <div>
-                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-6 mb-6">
-                  <div className="h-16 w-16 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400">
+                <div className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-6 mb-6">
+                  <div className="h-16 w-16 bg-gray-50 dark:bg-gray-800/50 rounded-lg flex items-center justify-center text-gray-400">
                     <Building2 className="w-8 h-8" />
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black text-gray-900">{activeCustomer?.customer || 'XConnect Network'}</h2>
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-gray-100">{activeCustomer?.customer || 'XConnect Network'}</h2>
                     <p className="text-gray-500 font-medium">{activeDistrict?.customer_district || 'Combined Districts'}</p>
                     <div className="mt-2 flex items-center gap-2">
                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100">{getReportTimeframeLabel(timeFilter)}</Badge>
@@ -335,14 +335,14 @@ export default function Reports() {
                    <Card className="border-l-4 border-l-blue-500">
                       <CardContent className="p-5">
                          <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Field Service</Label>
-                         <div className="text-3xl font-black text-gray-900 mt-1">{totalVisits} <span className="text-sm font-normal text-gray-400">Visits</span></div>
+                         <div className="text-3xl font-black text-gray-900 dark:text-gray-100 mt-1">{totalVisits} <span className="text-sm font-normal text-gray-400">Visits</span></div>
                          <div className="text-xs text-blue-600 font-bold mt-1">{totalHours.toLocaleString()} Total Hours invested</div>
                       </CardContent>
                    </Card>
                    <Card className="border-l-4 border-l-indigo-500">
                       <CardContent className="p-5">
                          <Label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Production Volume</Label>
-                         <div className="text-3xl font-black text-gray-900 mt-1">{totalBarrels.toLocaleString()} <span className="text-sm font-normal text-gray-400">Barrels</span></div>
+                         <div className="text-3xl font-black text-gray-900 dark:text-gray-100 mt-1">{totalBarrels.toLocaleString()} <span className="text-sm font-normal text-gray-400">Barrels</span></div>
                          <div className="text-xs text-indigo-600 font-bold mt-1">{totalStages.toLocaleString()} Stages Completed</div>
                       </CardContent>
                    </Card>
@@ -366,7 +366,7 @@ export default function Reports() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                    <Card>
-                      <CardHeader><CardTitle className="text-sm font-bold text-gray-600">Service Focus</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-sm font-bold text-gray-600 dark:text-gray-300">Service Focus</CardTitle></CardHeader>
                       <CardContent className="h-64">
                          <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={visitPurposeBreakdown} layout="vertical">
@@ -380,7 +380,7 @@ export default function Reports() {
                       </CardContent>
                    </Card>
                    <Card>
-                      <CardHeader><CardTitle className="text-sm font-bold text-gray-600">Panel Fleet</CardTitle></CardHeader>
+                      <CardHeader><CardTitle className="text-sm font-bold text-gray-600 dark:text-gray-300">Panel Fleet</CardTitle></CardHeader>
                       <CardContent className="h-64">
                          <ResponsiveContainer width="100%" height="100%">
                             <PieChart>

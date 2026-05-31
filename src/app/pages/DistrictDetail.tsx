@@ -71,16 +71,16 @@ export default function DistrictDetail() {
           </Button>
           <div className="flex items-start gap-4">
             {customerInfo?.customer_logo && (
-              <div className="bg-white p-3 rounded-lg shadow-sm border">
+              <div className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border">
                 <img src={customerInfo.customer_logo} alt={customerInfo.customer} className="h-16 w-16 object-contain" />
               </div>
             )}
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <MapPin className="w-6 h-6 text-blue-600" />
-                <h1 className="text-3xl font-bold text-gray-900">{district.customer_district}</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{district.customer_district}</h1>
               </div>
-              <p className="text-gray-600">{customerInfo?.customer || 'Unknown Customer'}</p>
+              <p className="text-gray-600 dark:text-gray-300">{customerInfo?.customer || 'Unknown Customer'}</p>
             </div>
           </div>
         </div>
@@ -93,11 +93,11 @@ export default function DistrictDetail() {
           <CardContent className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-500">Address</label>
-              <p className="text-gray-900 mt-1">{district.customer_address || 'No address provided'}</p>
+              <p className="text-gray-900 dark:text-gray-100 mt-1">{district.customer_address || 'No address provided'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Contact Person</label>
-              <p className="text-gray-900 mt-1">{district.district_contact || 'No contact provided'}</p>
+              <p className="text-gray-900 dark:text-gray-100 mt-1">{district.district_contact || 'No contact provided'}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-500">Phone</label>
@@ -132,7 +132,7 @@ export default function DistrictDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Field Visits</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.visitCount}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.visitCount}</p>
                     <p className="text-xs text-gray-500 mt-1">{kpis.totalVisitHours}h total • {kpis.avgVisitHours}h avg</p>
                   </div>
                   <Clock className="w-8 h-8 text-blue-500" />
@@ -147,7 +147,7 @@ export default function DistrictDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Incidents</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalIncidents}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalIncidents}</p>
                     <p className="text-xs text-gray-500 mt-1">{kpis.xcCausedYes} XC caused</p>
                   </div>
                   <AlertTriangle className="w-8 h-8 text-orange-500" />
@@ -162,7 +162,7 @@ export default function DistrictDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Panels</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalPanels}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalPanels}</p>
                     <p className="text-xs text-gray-500 mt-1">Total panels</p>
                   </div>
                   <Package className="w-8 h-8 text-purple-500" />
@@ -177,7 +177,7 @@ export default function DistrictDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Barrels Sold</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalBarrels.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalBarrels.toLocaleString()}</p>
                     <p className="text-xs text-gray-500 mt-1">Total barrels</p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-green-500" />
@@ -195,7 +195,7 @@ export default function DistrictDetail() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500">Stages Sold</p>
-                    <p className="text-2xl font-bold text-gray-900">{kpis.totalStages.toLocaleString()}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{kpis.totalStages.toLocaleString()}</p>
                     <p className="text-xs text-gray-500 mt-1">Total stages</p>
                   </div>
                   <BarChart3 className="w-8 h-8 text-blue-500" />
@@ -220,14 +220,14 @@ export default function DistrictDetail() {
                   <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 10,000 Barrels</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">XC Caused Incidents:</span>
-                      <span className="text-lg font-bold text-gray-900">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">XC Caused Incidents:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                         {kpis.totalBarrels > 0 ? ((kpis.xcCausedYes / kpis.totalBarrels) * 10000).toFixed(2) : '0.00'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Percentage:</span>
-                      <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerBarrelPct.toFixed(2)}%</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Percentage:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{kpis.incidentsPerBarrelPct.toFixed(2)}%</span>
                     </div>
                   </div>
                 </div>
@@ -235,14 +235,14 @@ export default function DistrictDetail() {
                   <h4 className="text-sm font-medium text-gray-500 mb-3">Incidents Per 1,000 Stages</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">XC Caused Incidents:</span>
-                      <span className="text-lg font-bold text-gray-900">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">XC Caused Incidents:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                         {kpis.totalStages > 0 ? ((kpis.xcCausedYes / kpis.totalStages) * 1000).toFixed(2) : '0.00'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Percentage:</span>
-                      <span className="text-lg font-bold text-gray-900">{kpis.incidentsPerStagePct.toFixed(2)}%</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-300">Percentage:</span>
+                      <span className="text-lg font-bold text-gray-900 dark:text-gray-100">{kpis.incidentsPerStagePct.toFixed(2)}%</span>
                     </div>
                   </div>
                 </div>

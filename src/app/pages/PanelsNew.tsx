@@ -299,8 +299,8 @@ export default function PanelsNew() {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">XFire Panel Inventory</h1>
-            <p className="text-gray-600 mt-1">Track and manage panel inventory, installations, and movements</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">XFire Panel Inventory</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">Track and manage panel inventory, installations, and movements</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleExportPDF} title="Export current view as PDF">
@@ -348,7 +348,7 @@ export default function PanelsNew() {
               onClick={() => setFilterStatus(filterStatus === filter ? '' : filter)}
             >
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">{label}</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">{label}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className={`text-3xl font-bold ${color}`}>{value}</div>

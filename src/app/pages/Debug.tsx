@@ -37,12 +37,12 @@ export default function Debug() {
   return (
     <div className="p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Database Row Counts</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">Database Row Counts</h1>
         
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Stages</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Stages</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{counts?.stages?.totalQuantity?.toLocaleString() || 0}</div>
@@ -51,7 +51,7 @@ export default function Debug() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Barrels Sold</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Barrels Sold</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{counts?.barrels_sold?.totalQuantity?.toLocaleString() || 0}</div>
@@ -60,7 +60,7 @@ export default function Debug() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Customers</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Customers</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{counts?.customers || 0}</div>
@@ -69,7 +69,7 @@ export default function Debug() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Districts</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Districts</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{counts?.customer_districts || 0}</div>
@@ -78,7 +78,7 @@ export default function Debug() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Field Visits</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Field Visits</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{counts?.field_visits || 0}</div>
@@ -87,7 +87,7 @@ export default function Debug() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Incidents</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Incidents</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{counts?.incidents || 0}</div>
@@ -111,7 +111,7 @@ export default function Debug() {
                 </div>
                 {counts?.panels?.byType && Object.entries(counts.panels.byType).map(([type, count]: [string, any]) => (
                   <div key={type} className="flex justify-between items-center">
-                    <span className="text-gray-700">{type}</span>
+                    <span className="text-gray-700 dark:text-gray-200">{type}</span>
                     <span className="font-semibold text-lg">{count}</span>
                   </div>
                 ))}

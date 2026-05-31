@@ -93,14 +93,14 @@ DROP POLICY IF EXISTS "Allow authenticated users to delete bulletins" ON technic
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-800/50">
       <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Database className="w-12 h-12 text-blue-600" />
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Technical Bulletins Setup</h1>
-            <p className="text-gray-600 mt-1">Create the database table in 3 simple steps</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Technical Bulletins Setup</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">Create the database table in 3 simple steps</p>
           </div>
         </div>
 
@@ -121,7 +121,7 @@ DROP POLICY IF EXISTS "Allow authenticated users to delete bulletins" ON technic
                     onClick={handleCopy} 
                     variant="outline" 
                     size="sm"
-                    className="bg-white"
+                    className="bg-white dark:bg-gray-900"
                   >
                     {copied ? (
                       <>
@@ -148,7 +148,7 @@ DROP POLICY IF EXISTS "Allow authenticated users to delete bulletins" ON technic
                     onClick={() => window.open('https://supabase.com/dashboard/project/gbllxumuogsncoiaksum/sql/new', '_blank')}
                     variant="outline"
                     size="sm"
-                    className="bg-white"
+                    className="bg-white dark:bg-gray-900"
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Open SQL Editor
@@ -227,7 +227,7 @@ DROP POLICY IF EXISTS "Allow authenticated users to delete bulletins" ON technic
             <CardTitle className="text-red-800">Already created the table but getting permission errors?</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-gray-700 dark:text-gray-200">
               If the table exists but saves fail with a <strong>Row-Level Security</strong> error (code 42501),
               run just this one line in the SQL Editor:
             </p>
@@ -261,17 +261,17 @@ DROP POLICY IF EXISTS "Allow authenticated users to delete bulletins" ON technic
             <CardTitle>Troubleshooting</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-gray-700">
+            <p className="text-gray-700 dark:text-gray-200">
               If you encounter any issues:
             </p>
-            <ul className="list-disc list-inside text-gray-600 space-y-2 ml-4">
+            <ul className="list-disc list-inside text-gray-600 dark:text-gray-300 space-y-2 ml-4">
               <li>Make sure you're logged into the correct Supabase project</li>
               <li>Verify you have admin/owner permissions</li>
               <li>Check the SQL Editor for any error messages</li>
               <li>If the table already exists, this SQL will skip creating it</li>
             </ul>
             <div className="mt-4 pt-4 border-t">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 <strong>Note:</strong> This setup only needs to be done once. After the table is created, 
                 you can use the Technical Bulletins feature normally.
               </p>

@@ -57,7 +57,7 @@ function Field({ label, value, editing, children }: FieldProps) {
       {editing && children ? (
         children
       ) : (
-        <p className="text-sm text-gray-900">{value || '—'}</p>
+        <p className="text-sm text-gray-900 dark:text-gray-100">{value || '—'}</p>
       )}
     </div>
   );
@@ -268,7 +268,7 @@ export default function FieldVisitDetail() {
             variant="ghost"
             size="sm"
             onClick={() => navigate('/field-visits')}
-            className="mb-4 -ml-1 text-gray-600 hover:text-gray-900"
+            className="mb-4 -ml-1 text-gray-600 dark:text-gray-300 hover:text-gray-900"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Field Visits
@@ -278,7 +278,7 @@ export default function FieldVisitDetail() {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             {/* Left: title block */}
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                 Field Visit
               </h1>
               <p className="text-gray-500 mt-0.5 text-sm">
@@ -346,7 +346,7 @@ export default function FieldVisitDetail() {
                   <select
                     value={form.visit_purpose}
                     onChange={(e) => setField('visit_purpose', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">Select purpose…</option>
                     {VISIT_PURPOSE_OPTS.map((o) => (
@@ -367,7 +367,7 @@ export default function FieldVisitDetail() {
                     onChange={(e) =>
                       setField('field_or_facility', e.target.value)
                     }
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">Select…</option>
                     {FIELD_OR_FACILITY_OPTS.map((o) => (
@@ -430,7 +430,7 @@ export default function FieldVisitDetail() {
                   <select
                     value={form.xc_rep ?? ''}
                     onChange={(e) => setField('xc_rep', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">— Select —</option>
                     {sqmReps.map((r) => (
@@ -468,7 +468,7 @@ export default function FieldVisitDetail() {
                   <select
                     value={form.customer ?? ''}
                     onChange={(e) => handleCustomerChange(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">— Select customer —</option>
                     {customers.map((c) => (
@@ -487,7 +487,7 @@ export default function FieldVisitDetail() {
                     value={form.customer_district ?? ''}
                     onChange={(e) => setField('customer_district', e.target.value)}
                     disabled={!form.customer}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">— Select district —</option>
                     {districts.map((d) => (
@@ -505,7 +505,7 @@ export default function FieldVisitDetail() {
                   <select
                     value={form.operating_company ?? ''}
                     onChange={(e) => setField('operating_company', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">— Select —</option>
                     {epCompanies.map((o) => (
@@ -556,7 +556,7 @@ export default function FieldVisitDetail() {
                   <select
                     value={form.communication_panel ?? ''}
                     onChange={(e) => setField('communication_panel', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">— None —</option>
                     {panelsByType(COMMUNICATION_PANEL).map((p) => (
@@ -574,7 +574,7 @@ export default function FieldVisitDetail() {
                   <select
                     value={form.digital_shooting_panel ?? ''}
                     onChange={(e) => setField('digital_shooting_panel', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">— None —</option>
                     {panelsByType(DIGITAL_SHOOTING_PANEL).map((p) => (
@@ -592,7 +592,7 @@ export default function FieldVisitDetail() {
                   <select
                     value={form.surface_tester ?? ''}
                     onChange={(e) => setField('surface_tester', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                   >
                     <option value="">— None —</option>
                     {panelsByType(SURFACE_TESTER).map((p) => (
@@ -617,8 +617,8 @@ export default function FieldVisitDetail() {
                     className="text-sm"
                   />
                 ) : (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-900 font-sans">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
+                    <pre className="whitespace-pre-wrap text-sm text-gray-900 dark:text-gray-100 font-sans">
                       {visit.visit_summary || 'No summary provided'}
                     </pre>
                   </div>
@@ -684,7 +684,7 @@ export default function FieldVisitDetail() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-gray-900 group-hover:text-blue-600 text-sm">
+                                <span className="font-medium text-gray-900 dark:text-gray-100 group-hover:text-blue-600 text-sm">
                                   Incident #{inc.event_id || inc.row_id.slice(0, 8)}
                                 </span>
                                 {inc.incident_status && (
@@ -706,7 +706,7 @@ export default function FieldVisitDetail() {
                                 </p>
                               )}
                               {inc.incident_description && (
-                                <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
                                   {inc.incident_description}
                                 </p>
                               )}

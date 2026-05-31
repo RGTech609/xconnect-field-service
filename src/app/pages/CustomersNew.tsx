@@ -376,8 +376,8 @@ export default function CustomersNew() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Customer & District Management</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Customer & District Management</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">
             Manage your wireline company customers and their districts
           </p>
         </div>
@@ -436,7 +436,7 @@ export default function CustomersNew() {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">{customer.customer}</TableCell>
-                        <TableCell className="text-sm text-gray-600">{customer.customer_logo || 'No logo'}</TableCell>
+                        <TableCell className="text-sm text-gray-600 dark:text-gray-300">{customer.customer_logo || 'No logo'}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" onClick={() => openEditCustomer(customer)}>
@@ -501,7 +501,7 @@ export default function CustomersNew() {
                                 }}
                               />
                             ) : (
-                              <div className="flex items-center justify-center w-8 h-8 bg-gray-100 rounded">
+                              <div className="flex items-center justify-center w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded">
                                 <Building2 className="w-4 h-4 text-gray-400" />
                               </div>
                             )}
@@ -510,8 +510,8 @@ export default function CustomersNew() {
                         </TableCell>
                         <TableCell>{district.customer_district_id}</TableCell>
                         <TableCell>{district.customer_district}</TableCell>
-                        <TableCell className="text-sm text-gray-600">{district.customer_address}</TableCell>
-                        <TableCell className="text-sm text-gray-600">{district.district_contact || '-'}</TableCell>
+                        <TableCell className="text-sm text-gray-600 dark:text-gray-300">{district.customer_address}</TableCell>
+                        <TableCell className="text-sm text-gray-600 dark:text-gray-300">{district.district_contact || '-'}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" onClick={() => openEditDistrict(district)}>
@@ -589,7 +589,7 @@ export default function CustomersNew() {
                   name="customer"
                   value={editingDistrict ? editingDistrict.customer : selectedCustomer}
                   required
-                  className="w-full border border-gray-300 rounded-md p-2"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2"
                   onChange={(e) => handleCustomerChange(e.target.value)}
                 >
                   <option value="">Select a customer...</option>

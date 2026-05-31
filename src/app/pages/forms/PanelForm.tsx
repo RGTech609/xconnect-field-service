@@ -54,7 +54,7 @@ const ACTIVITY_OPTS     = ['Y', 'N'];
 function F({ label, required, children, span }: { label: string; required?: boolean; children: React.ReactNode; span?: boolean }) {
   return (
     <div className={span ? 'col-span-2' : ''}>
-      <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+      <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </Label>
       {children}
@@ -64,7 +64,7 @@ function F({ label, required, children, span }: { label: string; required?: bool
 
 function Section({ title }: { title: string }) {
   return (
-    <div className="col-span-2 pt-2 pb-1 border-b border-gray-100">
+    <div className="col-span-2 pt-2 pb-1 border-b border-gray-100 dark:border-gray-700">
       <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{title}</span>
     </div>
   );
@@ -197,7 +197,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             {editing ? (
               <>
                 <div
-                  className="w-full border border-gray-300 rounded-md p-2 text-sm bg-gray-50 cursor-not-allowed text-gray-700"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed text-gray-700 dark:text-gray-200"
                   title="Panel type is locked after creation"
                 >
                   {panel?.panel_type || '—'}
@@ -208,7 +208,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             ) : (
               <select name="panel_type" defaultValue={panel?.panel_type || ''}
                 onChange={e => setPanelType(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm" required>
                 <option value="">— Select type —</option>
                 {PANEL_TYPE_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -218,7 +218,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           {showPlusPanel(panelType) && (
             <F label="Plus Panel?">
               <select name="plus_panel" defaultValue={panel?.plus_panel || ''}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm">
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
                 <option value="">— Select —</option>
                 {YES_NO_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -245,7 +245,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           <F label="Panel Status" required>
             <select name="panel_status" defaultValue={panel?.panel_status || 'At Facility'}
               onChange={e => setPanelStatus(e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm" required>
               <option value="">— Select status —</option>
               {PANEL_STATUS_OPTS.map(o => (
                 <option key={o} value={o}>{o}</option>
@@ -255,7 +255,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
 
           <F label="XC Base" required>
             <select name="xc_base" defaultValue={panel?.xc_base || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm" required>
               <option value="">— Select base —</option>
               {XC_BASE_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -271,7 +271,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
               type="date"
               defaultValue={panel?.received_date || (editing ? '' : new Date().toISOString().slice(0, 10))}
               readOnly
-              className="bg-gray-50 cursor-not-allowed"
+              className="bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed"
               title={editing ? 'Received date is locked after creation' : 'Auto-set to today. Cannot be edited.'}
             />
           </F>
@@ -281,7 +281,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
 
           <F label="Customer">
             <select value={custId} onChange={e => setCustId(e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— Not assigned —</option>
               {customers.map(c => <option key={c.row_id} value={c.row_id}>{c.customer}</option>)}
             </select>
@@ -289,7 +289,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
 
           <F label="District">
             <select name="customer_district" defaultValue={panel?.customer_district || ''}
-              disabled={!custId} className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              disabled={!custId} className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— Not assigned —</option>
               {districts.map(d => <option key={d.row_id} value={d.row_id}>{d.customer_district}</option>)}
             </select>
@@ -297,7 +297,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
 
           <F label="Operating Company">
             <select name="operating_company" defaultValue={panel?.operating_company || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— Select —</option>
               {epCompanies.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -339,7 +339,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
 
           <F label="Spare?">
             <select name="spare" defaultValue={panel?.is_spare || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— Select —</option>
               {YES_NO_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -347,14 +347,14 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
 
           <F label="Verified?">
             <select name="verified" defaultValue={panel?.verified || 'N'}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               {VERIFIED_OPTS.map(o => <option key={o} value={o}>{o === 'Y' ? 'Yes (Y)' : 'No (N)'}</option>)}
             </select>
           </F>
 
           <F label="Activity Flag">
             <select name="activity" defaultValue={panel?.activity || 'N'}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               {ACTIVITY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </F>
@@ -368,7 +368,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
               name="updated_by"
               value={currentUser?.name || currentUser?.email || ''}
               readOnly
-              className="bg-gray-50 cursor-not-allowed"
+              className="bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed"
               title="Auto-set to the current user. Cannot be edited."
             />
           </F>
@@ -383,7 +383,7 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
           </div>
 
           {/* ── Actions ── */}
-          <div className="col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-100">
+          <div className="col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>
               {saving ? 'Saving…' : editing ? 'Update Panel' : 'Add Panel'}

@@ -418,7 +418,7 @@ export default function TechnicalBulletin() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-800/50">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -432,10 +432,10 @@ export default function TechnicalBulletin() {
               Back to List
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                 {loading ? 'Loading...' : isEditMode ? 'Edit Technical Bulletin' : 'Create Technical Bulletin'}
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className="text-gray-600 dark:text-gray-300 mt-1">
                 {isEditMode ? 'Update and manage your technical bulletin' : 'Create professional technical bulletins for customer distribution'}
               </p>
             </div>
@@ -541,7 +541,7 @@ export default function TechnicalBulletin() {
                 <>
                   <select
                     id="affectedParts"
-                    className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full mt-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     onChange={(e) => {
                       const selectedPart = e.target.value;
                       if (selectedPart && !affectedParts.includes(selectedPart)) {
@@ -837,7 +837,7 @@ export default function TechnicalBulletin() {
                   disabled={generating}
                   size="lg"
                   variant="outline"
-                  className="w-full border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white"
+                  className="w-full border-gray-900 text-gray-900 dark:text-gray-100 hover:bg-gray-900 hover:text-white"
                 >
                   {generating ? (
                     <>Generating…</>
@@ -896,19 +896,19 @@ export default function TechnicalBulletin() {
           <CardContent>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Bulletin:</span>
+                <span className="text-gray-600 dark:text-gray-300">Bulletin:</span>
                 <span className="font-mono">TB-{bulletinNumber || '___'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Severity:</span>
+                <span className="text-gray-600 dark:text-gray-300">Severity:</span>
                 <Badge className={getSeverityColor(severity)}>{severity}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Products:</span>
+                <span className="text-gray-600 dark:text-gray-300">Products:</span>
                 <span>{affectedProducts.length > 0 ? affectedProducts.length : 'All'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Actions:</span>
+                <span className="text-gray-600 dark:text-gray-300">Actions:</span>
                 <span>{recommendedActions.filter(a => a.trim()).length}</span>
               </div>
             </div>
