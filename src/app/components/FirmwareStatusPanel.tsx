@@ -92,13 +92,13 @@ export default function FirmwareStatusPanel({
     : null;
 
   return (
-    <Card className="mb-6 border-slate-200">
+    <Card className="mb-6 border-slate-200 dark:border-slate-700">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
           <button
             type="button"
             onClick={() => setExpanded(e => !e)}
-            className="flex items-center gap-2 text-gray-900 hover:text-gray-600"
+            className="flex items-center gap-2 text-gray-900 dark:text-gray-100 hover:text-gray-600 dark:hover:text-gray-300"
           >
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             <Cpu className="w-4 h-4" />
@@ -127,7 +127,7 @@ export default function FirmwareStatusPanel({
 
       {expanded && (
         <CardContent className="pt-0">
-          <p className="text-xs text-gray-500 mb-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
             Target = the current/latest version each panel should be running. Panels below target are flagged for update.
             {lastUpdated && <> Targets last set {lastUpdated}{targets?.updated_by ? ` by ${targets.updated_by}` : ''}.</>}
           </p>
@@ -141,9 +141,9 @@ export default function FirmwareStatusPanel({
               return (
                 <div
                   key={f}
-                  className={`rounded-lg border p-3 ${active ? 'ring-2 ring-blue-400 border-blue-300' : 'border-gray-200'}`}
+                  className={`rounded-lg border p-3 ${active ? 'ring-2 ring-blue-400 border-blue-300 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700'}`}
                 >
-                  <div className="text-xs font-medium text-gray-600">{FIRMWARE_LABELS[f]}</div>
+                  <div className="text-xs font-medium text-gray-600 dark:text-gray-300">{FIRMWARE_LABELS[f]}</div>
 
                   {editing ? (
                     <Input
@@ -154,8 +154,8 @@ export default function FirmwareStatusPanel({
                     />
                   ) : (
                     <>
-                      <div className="text-lg font-bold text-gray-900 mt-0.5">
-                        {target && String(target).trim() ? target : <span className="text-gray-400 text-sm font-normal">— not set —</span>}
+                      <div className="text-lg font-bold text-gray-900 dark:text-gray-100 mt-0.5">
+                        {target && String(target).trim() ? target : <span className="text-gray-400 dark:text-gray-500 text-sm font-normal">— not set —</span>}
                       </div>
                       <div className="mt-1 min-h-[20px]">
                         {!target ? (
