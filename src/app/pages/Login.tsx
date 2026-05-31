@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth-context';
+import { useTheme } from '../lib/theme-context';
+import { XCONNECT_LOGO_B64, XCONNECT_LOGO_UI_DARK_B64 } from '../lib/brandAssets';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -13,6 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { signIn, signInWithGoogle, user } = useAuth();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
 
   if (user) {
@@ -54,16 +57,12 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-base font-extrabold tracking-tight shadow-md"
-              style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)' }}>
-              XC
-            </div>
-            <div>
-              <div className="text-lg font-extrabold tracking-tight leading-none text-gray-900 dark:text-gray-50">XConnect</div>
-              <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 mt-0.5">Field Service Platform</div>
-            </div>
-          </div>
+          {/* Official XConnect logo, swapped for the active theme. */}
+          <img
+            src={isDark ? XCONNECT_LOGO_UI_DARK_B64 : XCONNECT_LOGO_B64}
+            alt="XConnect"
+            className="h-9 w-auto mb-3"
+          />
           <CardTitle className="text-2xl font-bold">Field Service Management</CardTitle>
           <CardDescription>
             Sign in to access your account

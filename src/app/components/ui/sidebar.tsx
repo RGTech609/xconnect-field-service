@@ -14,6 +14,7 @@ import { Link, useLocation } from 'react-router';
 // Notice the double dots here! ../../
 import { useAuth } from '../../lib/auth-context';
 import { useTheme } from '../../lib/theme-context';
+import { XCONNECT_LOGO_B64, XCONNECT_LOGO_UI_DARK_B64 } from '../../lib/brandAssets';
 import {
   LayoutDashboard, Users, ClipboardList, AlertTriangle,
   Cpu, TrendingUp, FileBarChart,
@@ -82,36 +83,18 @@ export default function Sidebar() {
 
       {/* ── Logo / XConnect branding ── */}
       <div style={{
-        padding: '18px 20px 16px',
+        padding: '20px 20px 16px',
         borderBottom: `1px solid ${isDark ? '#1e293b' : '#f1f5f9'}`,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Brand mark — interlocking "XC" badge */}
-          <div style={{
-            width: 34,
-            height: 34,
-            borderRadius: 9,
-            background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            fontSize: 14,
-            fontWeight: 800,
-            letterSpacing: '-0.04em',
-            boxShadow: '0 2px 8px rgba(37,99,235,0.35)',
-            flexShrink: 0,
-          }}>
-            XC
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              XConnect
-            </div>
-            <div style={{ fontSize: 10.5, color: isDark ? '#64748b' : '#94a3b8', marginTop: 2, fontWeight: 600, letterSpacing: '0.02em' }}>
-              Field Service Platform
-            </div>
-          </div>
+        {/* Official XConnect logo. The transparent (white X) variant reads on the
+            dark sidebar; the on-white variant reads on the light sidebar. */}
+        <img
+          src={isDark ? XCONNECT_LOGO_UI_DARK_B64 : XCONNECT_LOGO_B64}
+          alt="XConnect"
+          style={{ height: 30, width: 'auto', display: 'block' }}
+        />
+        <div style={{ fontSize: 10.5, color: isDark ? '#64748b' : '#94a3b8', marginTop: 8, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          Field Service Platform
         </div>
       </div>
 
