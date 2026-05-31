@@ -61,7 +61,7 @@ function Field({ label, value, editing = false, children }: FieldProps) {
       {editing && children ? (
         children
       ) : (
-        <p className="text-sm text-gray-900">{value || '—'}</p>
+        <p className="text-sm text-gray-900 dark:text-gray-100">{value || '—'}</p>
       )}
     </div>
   );
@@ -100,7 +100,7 @@ function Sel({
     <select
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full border border-gray-300 rounded-md p-2 text-sm"
+      className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
     >
       {placeholder && <option value="">{placeholder}</option>}
       {opts.map((o) => (
@@ -298,7 +298,7 @@ export default function PanelDetail() {
 
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {panel.serial_number || 'Panel Detail'}
               </h1>
               <p className="text-sm text-gray-500 mt-1">
@@ -380,7 +380,7 @@ export default function PanelDetail() {
                     <select
                       value={form.customer ?? ''}
                       onChange={(e) => handleCustomerChange(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                     >
                       <option value="">— Not assigned —</option>
                       {customers.map((c) => (
@@ -399,7 +399,7 @@ export default function PanelDetail() {
                       value={form.customer_district ?? ''}
                       onChange={(e) => setField('customer_district', e.target.value)}
                       disabled={!form.customer}
-                      className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                     >
                       <option value="">— Not assigned —</option>
                       {districts.map((d) => (
@@ -417,7 +417,7 @@ export default function PanelDetail() {
                     <select
                       value={form.operating_company ?? ''}
                       onChange={(e) => setField('operating_company', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                     >
                       <option value="">— Select —</option>
                       {epCompanies.map((o) => (
@@ -629,8 +629,8 @@ export default function PanelDetail() {
                     className="w-full"
                   />
                 ) : (
-                  <div className="bg-gray-50 p-4 rounded-lg min-h-[60px]">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-900 font-sans">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg min-h-[60px]">
+                    <pre className="whitespace-pre-wrap text-sm text-gray-900 dark:text-gray-100 font-sans">
                       {panel.comments || '—'}
                     </pre>
                   </div>

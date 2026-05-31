@@ -108,7 +108,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div>
       <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
-      <div className="text-sm text-gray-900">{children}</div>
+      <div className="text-sm text-gray-900 dark:text-gray-100">{children}</div>
     </div>
   );
 }
@@ -127,7 +127,7 @@ function TextBlock({ label, value }: { label: string; value?: string }) {
   return (
     <div>
       <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-sm text-gray-700 bg-gray-50 border border-gray-100 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">{value}</p>
+      <p className="text-sm text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">{value}</p>
     </div>
   );
 }
@@ -552,8 +552,8 @@ export default function IncidentsNew() {
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Incident Management</h1>
-            <p className="text-gray-600 mt-2">Track and investigate field incidents</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Incident Management</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Track and investigate field incidents</p>
           </div>
           <Button className="bg-gray-900 hover:bg-gray-800 text-white"
             onClick={() => { setEditingIncident(null); setFormOpen(true); }}>
@@ -659,8 +659,8 @@ export default function IncidentsNew() {
 
         {/* Table */}
         <Card className="border shadow-sm rounded-xl overflow-hidden">
-          <CardHeader className="border-b bg-white pb-4 pt-6 px-6">
-            <CardTitle className="flex items-center justify-between text-lg font-semibold text-gray-900">
+          <CardHeader className="border-b bg-white dark:bg-gray-900 pb-4 pt-6 px-6">
+            <CardTitle className="flex items-center justify-between text-lg font-semibold text-gray-900 dark:text-gray-100">
               {filtersActive ? 'Filtered Incidents' : 'All Incidents'}
               <span className="text-sm font-normal text-gray-500">
                 {filtersActive ? `${filteredIncidents.length} of ${incidents.length}` : `${incidents.length} total`}
@@ -671,7 +671,7 @@ export default function IncidentsNew() {
             {filteredIncidents.length === 0 ? (
               <div className="text-center py-16 bg-gray-50/50">
                 <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-lg font-medium text-gray-900">No incidents found.</p>
+                <p className="text-lg font-medium text-gray-900 dark:text-gray-100">No incidents found.</p>
                 {filtersActive && (
                   <button onClick={clearFilters} className="mt-2 text-sm text-blue-600 underline">Clear filters</button>
                 )}
@@ -681,15 +681,15 @@ export default function IncidentsNew() {
                 <Table>
                   <TableHeader className="bg-gray-50/50">
                     <TableRow className="hover:bg-transparent">
-                      <SortableHead sortKey="event_id"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 w-[90px]">Event ID</SortableHead>
-                      <SortableHead sortKey="date"      sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 w-[100px]">Date</SortableHead>
-                      <SortableHead sortKey="customer"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700">Customer / District</SortableHead>
-                      <SortableHead sortKey="category"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700">Category</SortableHead>
-                      <SortableHead sortKey="severity"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700">Severity</SortableHead>
-                      <SortableHead sortKey="status"    sort={sort} onSort={toggleSort} className="font-semibold text-gray-700">Status</SortableHead>
-                      <SortableHead sortKey="xc_caused" sort={sort} onSort={toggleSort} className="font-semibold text-gray-700">XC Caused</SortableHead>
-                      <TableHead className="font-semibold text-gray-700 w-[96px]">Reports</TableHead>
-                      <TableHead className="font-semibold text-gray-700 text-right w-[110px]">Actions</TableHead>
+                      <SortableHead sortKey="event_id"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 dark:text-gray-200 w-[90px]">Event ID</SortableHead>
+                      <SortableHead sortKey="date"      sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 dark:text-gray-200 w-[100px]">Date</SortableHead>
+                      <SortableHead sortKey="customer"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 dark:text-gray-200">Customer / District</SortableHead>
+                      <SortableHead sortKey="category"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 dark:text-gray-200">Category</SortableHead>
+                      <SortableHead sortKey="severity"  sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 dark:text-gray-200">Severity</SortableHead>
+                      <SortableHead sortKey="status"    sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 dark:text-gray-200">Status</SortableHead>
+                      <SortableHead sortKey="xc_caused" sort={sort} onSort={toggleSort} className="font-semibold text-gray-700 dark:text-gray-200">XC Caused</SortableHead>
+                      <TableHead className="font-semibold text-gray-700 dark:text-gray-200 w-[96px]">Reports</TableHead>
+                      <TableHead className="font-semibold text-gray-700 dark:text-gray-200 text-right w-[110px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -701,16 +701,16 @@ export default function IncidentsNew() {
                             <ExternalLink className="w-3 h-3" />
                           </Link>
                         </TableCell>
-                        <TableCell className="text-gray-600 text-sm">
+                        <TableCell className="text-gray-600 dark:text-gray-300 text-sm">
                           {inc.date_incident ? format(parseISO(inc.date_incident), 'M/d/yyyy') : '-'}
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium text-gray-900 text-sm">{inc.customerName || '-'}</div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">{inc.customerName || '-'}</div>
                           <div className="text-xs text-gray-500 mt-0.5">{inc.districtName || '-'}</div>
                         </TableCell>
                         <TableCell>
                           {inc.event_category
-                            ? <Badge variant="outline" className="bg-white text-gray-600 font-normal">{inc.event_category}</Badge>
+                            ? <Badge variant="outline" className="bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-normal">{inc.event_category}</Badge>
                             : <span className="text-gray-300">-</span>}
                         </TableCell>
                         <TableCell><SeverityBadge severity={inc.incident_severity} /></TableCell>
@@ -877,8 +877,8 @@ export default function IncidentsNew() {
                       <section>
                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 border-b pb-1">Visual Evidence</p>
                         <div className="grid grid-cols-2 gap-4">
-                          {r.image1 && <div><p className="text-xs text-gray-400 mb-1">Photo 1</p><img src={r.image1} alt="Evidence 1" className="rounded-lg border max-h-56 w-full object-contain bg-gray-50" /></div>}
-                          {r.image2 && <div><p className="text-xs text-gray-400 mb-1">Photo 2</p><img src={r.image2} alt="Evidence 2" className="rounded-lg border max-h-56 w-full object-contain bg-gray-50" /></div>}
+                          {r.image1 && <div><p className="text-xs text-gray-400 mb-1">Photo 1</p><img src={r.image1} alt="Evidence 1" className="rounded-lg border max-h-56 w-full object-contain bg-gray-50 dark:bg-gray-800/50" /></div>}
+                          {r.image2 && <div><p className="text-xs text-gray-400 mb-1">Photo 2</p><img src={r.image2} alt="Evidence 2" className="rounded-lg border max-h-56 w-full object-contain bg-gray-50 dark:bg-gray-800/50" /></div>}
                         </div>
                       </section>
                     )}
@@ -902,13 +902,13 @@ export default function IncidentsNew() {
                               ? 'Local-only — regenerate to share with team'
                               : 'Saved in shared storage';
                           return (
-                            <div key={version} className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50">
+                            <div key={version} className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50 dark:bg-gray-800/50">
                               <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-xs font-bold shrink-0
                                 ${color === 'amber' ? 'bg-amber-100 text-amber-700 border border-amber-300' : 'bg-blue-100 text-blue-700 border border-blue-300'}`}>
                                 {label[0]}
                               </span>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-gray-700">{label} Report</p>
+                                <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{label} Report</p>
                                 <p className="text-xs text-gray-400">{status}</p>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -938,9 +938,9 @@ export default function IncidentsNew() {
                         })}
 
                         {/* Report Sent toggle — admin only */}
-                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50">
+                        <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-gray-50 dark:bg-gray-800/50">
                           <div className="flex-1">
-                            <p className="text-xs font-semibold text-gray-700">Report Sent to Customer</p>
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Report Sent to Customer</p>
                             {r.report_sent
                               ? <p className="text-xs text-emerald-600">Sent{safeFmtDate(r.report_sent, ' MMMM d, yyyy')}</p>
                               : <p className="text-xs text-gray-400">

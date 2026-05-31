@@ -51,9 +51,19 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-base font-extrabold tracking-tight shadow-md"
+              style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%)' }}>
+              XC
+            </div>
+            <div>
+              <div className="text-lg font-extrabold tracking-tight leading-none text-gray-900 dark:text-gray-50">XConnect</div>
+              <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 mt-0.5">Field Service Platform</div>
+            </div>
+          </div>
           <CardTitle className="text-2xl font-bold">Field Service Management</CardTitle>
           <CardDescription>
             Sign in to access your account

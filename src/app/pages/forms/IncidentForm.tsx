@@ -56,7 +56,7 @@ function F({
 }) {
   return (
     <div>
-      <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+      <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </Label>
@@ -84,9 +84,9 @@ function SectionCard({
   const colClass =
     cols === 1 ? 'grid-cols-1' : cols === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2';
   return (
-    <section className="rounded-lg border border-gray-200 bg-white">
-      <header className="px-4 pt-3 pb-2 border-b border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+    <section className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <header className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
         {description && (
           <p className="text-xs text-gray-500 mt-0.5">{description}</p>
         )}
@@ -124,7 +124,7 @@ function AssistField({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <Label className="text-xs font-semibold text-gray-600">{label}</Label>
+        <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300">{label}</Label>
         <button
           type="button"
           onClick={() => onAiOpen(field)}
@@ -175,7 +175,7 @@ function Sel({
     <select
       name={name}
       defaultValue={defaultValue || ''}
-      className="w-full border border-gray-300 rounded-md p-2 text-sm"
+      className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
     >
       {children}
     </select>
@@ -588,7 +588,7 @@ export default function IncidentForm({
                   required
                   value={nextEventId}
                   readOnly
-                  className="font-mono bg-gray-50 cursor-not-allowed"
+                  className="font-mono bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed"
                   title="Auto-assigned. Cannot be edited."
                 />
               </F>
@@ -678,7 +678,7 @@ export default function IncidentForm({
                   setCustId(e.target.value);
                   setDistId('');
                 }}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
                 required
               >
                 <option value="">— Select customer —</option>
@@ -695,7 +695,7 @@ export default function IncidentForm({
                 value={distId}
                 onChange={(e) => setDistId(e.target.value)}
                 disabled={!custId}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm"
               >
                 <option value="">— All districts —</option>
                 {districts.map((d: any) => (
@@ -1092,7 +1092,7 @@ export default function IncidentForm({
         />
 
         {/* Sticky footer actions — always visible regardless of scroll */}
-        <div className="flex justify-end gap-3 px-6 py-3 border-t bg-white shrink-0">
+        <div className="flex justify-end gap-3 px-6 py-3 border-t bg-white dark:bg-gray-900 shrink-0">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>

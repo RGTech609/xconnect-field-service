@@ -144,8 +144,8 @@ export default function Customers() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Customers & Districts</h1>
-            <p className="text-gray-600 mt-2">Manage your wireline company customers and their districts</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Customers & Districts</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Manage your wireline company customers and their districts</p>
           </div>
           {user?.role === 'admin' && (
             <div className="flex gap-3">
@@ -293,7 +293,7 @@ export default function Customers() {
                 <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
                   <Link to={`/customers/${customer.row_id}`} className="flex items-center gap-4 hover:opacity-80 transition-opacity">
                     {customer.customer_logo ? (
-                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <div className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm">
                         <img 
                           src={customer.customer_logo} 
                           alt={customer.customer} 
@@ -301,13 +301,13 @@ export default function Customers() {
                         />
                       </div>
                     ) : (
-                      <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-sm">
                         <Building2 className="h-16 w-16 text-gray-400" />
                       </div>
                     )}
                     <div className="flex-1">
-                      <CardTitle className="text-2xl text-gray-900">{customer.customer}</CardTitle>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <CardTitle className="text-2xl text-gray-900 dark:text-gray-100">{customer.customer}</CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                         {customer.districts.length} {customer.districts.length === 1 ? 'district' : 'districts'}
                       </p>
                     </div>
@@ -338,12 +338,12 @@ export default function Customers() {
                         <Link
                           key={district.row_id}
                           to={`/districts/${district.row_id}`}
-                          className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white block"
+                          className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white dark:bg-gray-900 block"
                         >
                           <div className="flex items-start justify-between gap-2 mb-3">
                             <div className="flex items-start gap-2">
                               <MapPin className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                              <h3 className="font-semibold text-gray-900">{district.customer_district}</h3>
+                              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{district.customer_district}</h3>
                             </div>
                           </div>
                           
@@ -351,7 +351,7 @@ export default function Customers() {
                             {/* Address */}
                             <div>
                               <p className="text-xs text-gray-500 font-medium mb-1">ADDRESS</p>
-                              <p className="text-gray-700">{district.customer_address || 'No address provided'}</p>
+                              <p className="text-gray-700 dark:text-gray-200">{district.customer_address || 'No address provided'}</p>
                             </div>
                             
                             {/* Contact Information */}
@@ -359,15 +359,15 @@ export default function Customers() {
                               <p className="text-xs text-gray-500 font-medium mb-2">CONTACT</p>
                               {district.district_contact ? (
                                 <div className="space-y-2">
-                                  <p className="font-medium text-gray-900">{district.district_contact}</p>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">{district.district_contact}</p>
                                   {district.customer_phone_number && (
-                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                    <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
                                       <Phone className="w-3.5 h-3.5" />
                                       <span className="hover:text-blue-600">{district.customer_phone_number}</span>
                                     </div>
                                   )}
                                   {district.customer_email && (
-                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                    <div className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
                                       <Mail className="w-3.5 h-3.5" />
                                       <span className="hover:text-blue-600 truncate">{district.customer_email}</span>
                                     </div>

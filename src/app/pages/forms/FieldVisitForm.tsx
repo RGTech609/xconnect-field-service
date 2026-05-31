@@ -36,7 +36,7 @@ const FIELD_FACILITY_OPTS = ['Field', 'Facility'];
 function F({ label, required, children, span }: { label: string; required?: boolean; children: React.ReactNode; span?: boolean }) {
   return (
     <div className={span ? 'col-span-2' : ''}>
-      <Label className="text-xs font-semibold text-gray-600 mb-1 block">
+      <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </Label>
       {children}
@@ -46,7 +46,7 @@ function F({ label, required, children, span }: { label: string; required?: bool
 
 function Section({ title }: { title: string }) {
   return (
-    <div className="col-span-2 pt-2 pb-1 border-b border-gray-100">
+    <div className="col-span-2 pt-2 pb-1 border-b border-gray-100 dark:border-gray-700">
       <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{title}</span>
     </div>
   );
@@ -209,14 +209,14 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
               value={editing ? (visit?.field_visit_id || '') : nextVisitId}
               readOnly
               required
-              className="bg-gray-50 cursor-not-allowed"
+              className="bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed"
               title={editing ? 'Visit ID is locked' : 'Auto-assigned. Cannot be edited.'}
             />
           </F>
 
           <F label="Visit Purpose" required>
             <select name="visit_purpose" defaultValue={visit?.visit_purpose || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm" required>
               <option value="">— Select purpose —</option>
               {VISIT_PURPOSE_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -224,7 +224,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
 
           <F label="Field or Facility">
             <select name="field_or_facility" defaultValue={visit?.field_or_facility || 'Field'}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               {FIELD_FACILITY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </F>
@@ -252,7 +252,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
 
           <F label="Customer" required>
             <select value={custId} onChange={e => setCustId(e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm" required>
               <option value="">— Select customer —</option>
               {customers.map(c => <option key={c.row_id} value={c.row_id}>{c.customer}</option>)}
             </select>
@@ -260,7 +260,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
 
           <F label="District" required>
             <select name="customer_district" defaultValue={visit?.customer_district || ''}
-              disabled={!custId} className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
+              disabled={!custId} className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm" required>
               <option value="">— Select district —</option>
               {districts.map(d => <option key={d.row_id} value={d.row_id}>{d.customer_district}</option>)}
             </select>
@@ -268,7 +268,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
 
           <F label="Operating Company">
             <select name="operating_company" defaultValue={visit?.operating_company || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— Select —</option>
               {epCompanies.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
@@ -281,7 +281,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
             {/* Auto-pulled from the logged-in user when their name matches an SQM
                 rep; otherwise selectable. Editable so the rep can be corrected. */}
             <select name="xc_rep" value={xcRep} onChange={e => setXcRep(e.target.value)}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm" required>
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm" required>
               <option value="">— Select —</option>
               {sqmReps.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
@@ -349,7 +349,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
 
           <F label="Digital Shooting Panel">
             <select name="digital_shooting_panel" defaultValue={visit?.digital_shooting_panel || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— None —</option>
               {panelsByType('Digital Shooting Panel').map(p => (
                 <option key={getSerial(p)} value={getSerial(p)}>{getSerial(p)}</option>
@@ -359,7 +359,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
 
           <F label="Communication Panel">
             <select name="communication_panel" defaultValue={visit?.communication_panel || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— None —</option>
               {panelsByType('Communication Panel').map(p => (
                 <option key={getSerial(p)} value={getSerial(p)}>{getSerial(p)}</option>
@@ -369,7 +369,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
 
           <F label="Surface Tester">
             <select name="surface_tester" defaultValue={visit?.surface_tester || ''}
-              className="w-full border border-gray-300 rounded-md p-2 text-sm">
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
               <option value="">— None —</option>
               {panelsByType('Surface Tester').map(p => (
                 <option key={getSerial(p)} value={getSerial(p)}>{getSerial(p)}</option>
@@ -389,7 +389,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
           </div>
 
           {/* ── Actions ── */}
-          <div className="col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-100">
+          <div className="col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={saving}>
               {saving ? 'Saving…' : editing ? 'Update Visit' : 'Create Visit'}

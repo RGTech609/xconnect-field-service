@@ -202,8 +202,8 @@ export default function DataFix() {
     <div className="p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Data Fix Utility</h1>
-          <p className="text-gray-600 mt-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Data Fix Utility</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">
             Fix records that are displaying UUIDs instead of names
           </p>
         </div>
@@ -222,7 +222,7 @@ export default function DataFix() {
             <CardTitle>Fix Missing Names</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               Click the button below to automatically fix all records that are showing UUIDs 
               instead of customer/district names.
             </p>
@@ -271,7 +271,7 @@ export default function DataFix() {
             <CardHeader>
               <CardTitle>How It Works</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm text-gray-600">
+            <CardContent className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
               <p>1. Loads all customers and districts to create a lookup table</p>
               <p>2. Scans all field visits, incidents, sales, panels, and districts</p>
               <p>3. For each record missing a customerName or districtName, looks up the ID</p>

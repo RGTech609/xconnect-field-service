@@ -181,7 +181,7 @@ export default function Import() {
     return (
       <div className="p-8">
         <div className="max-w-7xl mx-auto text-center py-12">
-          <p className="text-gray-600">Only administrators can access this page.</p>
+          <p className="text-gray-600 dark:text-gray-300">Only administrators can access this page.</p>
         </div>
       </div>
     );
@@ -193,8 +193,8 @@ export default function Import() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Import Data</h1>
-          <p className="text-gray-600 mt-2">Import data from existing Supabase tables</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Import Data</h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Import data from existing Supabase tables</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -444,10 +444,10 @@ export default function Import() {
                 <CardContent>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
+                      <thead className="bg-gray-50 dark:bg-gray-800/50">
                         <tr>
                           {columns.map((col) => (
-                            <th key={col} className="px-4 py-2 text-left font-medium text-gray-700">
+                            <th key={col} className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-200">
                               {col}
                             </th>
                           ))}
@@ -457,7 +457,7 @@ export default function Import() {
                         {tableData.map((row, idx) => (
                           <tr key={idx} className="border-t">
                             {columns.map((col) => (
-                              <td key={col} className="px-4 py-2 text-gray-600">
+                              <td key={col} className="px-4 py-2 text-gray-600 dark:text-gray-300">
                                 {row[col] !== null && row[col] !== undefined 
                                   ? String(row[col]).substring(0, 50) 
                                   : '-'}

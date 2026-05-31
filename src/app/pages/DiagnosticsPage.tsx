@@ -62,8 +62,8 @@ export default function DiagnosticsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <p className="text-sm text-gray-600 mb-4">
-              This diagnostic tool checks if your database tables have proper auto-generation configured for the <code className="bg-gray-100 px-2 py-1 rounded">row_id</code> column.
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              This diagnostic tool checks if your database tables have proper auto-generation configured for the <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">row_id</code> column.
             </p>
             <Button onClick={runDiagnostics} disabled={loading}>
               {loading ? 'Running Diagnostics...' : 'Run Diagnostics'}
@@ -141,21 +141,21 @@ export default function DiagnosticsPage() {
                   {diagnosis.diagnosis.map((table: any, index: number) => (
                     <div key={index} className="border rounded-lg p-4">
                       <h4 className="font-semibold mb-2">
-                        Table: <code className="bg-gray-100 px-2 py-1 rounded">{table.table_name}</code>
+                        Table: <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{table.table_name}</code>
                       </h4>
                       <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                         <div>
-                          <span className="text-gray-600">Data Type:</span>{' '}
-                          <code className="bg-gray-100 px-2 py-1 rounded">{table.data_type}</code>
+                          <span className="text-gray-600 dark:text-gray-300">Data Type:</span>{' '}
+                          <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{table.data_type}</code>
                         </div>
                         <div>
-                          <span className="text-gray-600">Nullable:</span>{' '}
+                          <span className="text-gray-600 dark:text-gray-300">Nullable:</span>{' '}
                           <span className={table.is_nullable === 'NO' ? 'text-red-600 font-semibold' : 'text-green-600'}>
                             {table.is_nullable}
                           </span>
                         </div>
                         <div className="col-span-2">
-                          <span className="text-gray-600">Default Value:</span>{' '}
+                          <span className="text-gray-600 dark:text-gray-300">Default Value:</span>{' '}
                           {table.column_default ? (
                             <code className="bg-green-100 px-2 py-1 rounded text-green-800">{table.column_default}</code>
                           ) : (
