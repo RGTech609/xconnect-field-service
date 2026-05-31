@@ -121,7 +121,7 @@ DROP POLICY IF EXISTS "Allow authenticated users to delete bulletins" ON technic
                     onClick={handleCopy} 
                     variant="outline" 
                     size="sm"
-                    className="bg-white dark:bg-gray-900"
+                    className="bg-white dark:bg-gray-800"
                   >
                     {copied ? (
                       <>
@@ -148,7 +148,7 @@ DROP POLICY IF EXISTS "Allow authenticated users to delete bulletins" ON technic
                     onClick={() => window.open('https://supabase.com/dashboard/project/gbllxumuogsncoiaksum/sql/new', '_blank')}
                     variant="outline"
                     size="sm"
-                    className="bg-white dark:bg-gray-900"
+                    className="bg-white dark:bg-gray-800"
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Open SQL Editor

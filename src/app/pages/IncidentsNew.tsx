@@ -659,7 +659,7 @@ export default function IncidentsNew() {
 
         {/* Table */}
         <Card className="border shadow-sm rounded-xl overflow-hidden">
-          <CardHeader className="border-b bg-white dark:bg-gray-900 pb-4 pt-6 px-6">
+          <CardHeader className="border-b bg-white dark:bg-gray-800 pb-4 pt-6 px-6">
             <CardTitle className="flex items-center justify-between text-lg font-semibold text-gray-900 dark:text-gray-100">
               {filtersActive ? 'Filtered Incidents' : 'All Incidents'}
               <span className="text-sm font-normal text-gray-500">
@@ -710,7 +710,7 @@ export default function IncidentsNew() {
                         </TableCell>
                         <TableCell>
                           {inc.event_category
-                            ? <Badge variant="outline" className="bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 font-normal">{inc.event_category}</Badge>
+                            ? <Badge variant="outline" className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-normal">{inc.event_category}</Badge>
                             : <span className="text-gray-300">-</span>}
                         </TableCell>
                         <TableCell><SeverityBadge severity={inc.incident_severity} /></TableCell>

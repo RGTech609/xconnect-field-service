@@ -71,7 +71,7 @@ export default function DistrictDetail() {
           </Button>
           <div className="flex items-start gap-4">
             {customerInfo?.customer_logo && (
-              <div className="bg-white dark:bg-gray-900 p-3 rounded-lg shadow-sm border">
+              <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border">
                 <img src={customerInfo.customer_logo} alt={customerInfo.customer} className="h-16 w-16 object-contain" />
               </div>
             )}

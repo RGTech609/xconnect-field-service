@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { supabase } from "../lib/supabase";
+import { useTheme } from "../lib/theme-context";
 import {
   TrendingUp,
   AlertTriangle,
@@ -93,31 +94,36 @@ function monthLabel(iso: string): string {
   return d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
 }
 
-// Shared input styling for the filter bar controls.
-const selectStyle: React.CSSProperties = {
-  appearance: "none",
-  background: "#fff",
-  border: "1px solid #cbd5e1",
-  borderRadius: 9,
-  padding: "9px 12px",
-  fontSize: 13.5,
-  color: "#0f172a",
-  fontWeight: 600,
-  minWidth: 170,
-  cursor: "pointer",
-  fontFamily: "inherit",
-};
+// Shared input styling for the filter bar controls. Factory functions so the
+// controls respond to dark mode (see Executive() → useTheme()).
+function makeSelectStyle(isDark: boolean): React.CSSProperties {
+  return {
+    appearance: "none",
+    background: isDark ? "#0f172a" : "#fff",
+    border: `1px solid ${isDark ? "#475569" : "#cbd5e1"}`,
+    borderRadius: 9,
+    padding: "9px 12px",
+    fontSize: 13.5,
+    color: isDark ? "#f1f5f9" : "#0f172a",
+    fontWeight: 600,
+    minWidth: 170,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  };
+}
 
-const inputStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #cbd5e1",
-  borderRadius: 9,
-  padding: "8px 11px",
-  fontSize: 13.5,
-  color: "#0f172a",
-  fontWeight: 600,
-  fontFamily: "inherit",
-};
+function makeInputStyle(isDark: boolean): React.CSSProperties {
+  return {
+    background: isDark ? "#0f172a" : "#fff",
+    border: `1px solid ${isDark ? "#475569" : "#cbd5e1"}`,
+    borderRadius: 9,
+    padding: "8px 11px",
+    fontSize: 13.5,
+    color: isDark ? "#f1f5f9" : "#0f172a",
+    fontWeight: 600,
+    fontFamily: "inherit",
+  };
+}
 
 // ── Small UI primitives ────────────────────────────────────────────────────────
 function KpiCard({
@@ -126,21 +132,23 @@ function KpiCard({
   value,
   sub,
   accent,
+  isDark,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   sub?: string;
   accent: string;
+  isDark: boolean;
 }) {
   return (
     <div
       style={{
-        background: "#fff",
-        border: "1px solid #e2e8f0",
+        background: isDark ? "#1e293b" : "#fff",
+        border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
         borderRadius: 14,
         padding: "20px 22px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        boxShadow: isDark ? "0 1px 3px rgba(0,0,0,0.4)" : "0 1px 3px rgba(0,0,0,0.05)",
         display: "flex",
         flexDirection: "column",
         gap: 10,
@@ -161,14 +169,14 @@ function KpiCard({
         >
           {icon}
         </span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? "#94a3b8" : "#64748b" }}>
           {label}
         </span>
       </div>
-      <div style={{ fontSize: 30, fontWeight: 700, color: "#0f172a", lineHeight: 1 }}>
+      <div style={{ fontSize: 30, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", lineHeight: 1 }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: 12.5, color: "#94a3b8" }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12.5, color: isDark ? "#94a3b8" : "#94a3b8" }}>{sub}</div>}
     </div>
   );
 }
@@ -177,19 +185,21 @@ function SectionCard({
   title,
   children,
   right,
+  isDark,
 }: {
   title: string;
   children: React.ReactNode;
   right?: React.ReactNode;
+  isDark: boolean;
 }) {
   return (
     <div
       style={{
-        background: "#fff",
-        border: "1px solid #e2e8f0",
+        background: isDark ? "#1e293b" : "#fff",
+        border: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
         borderRadius: 14,
         padding: 22,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        boxShadow: isDark ? "0 1px 3px rgba(0,0,0,0.4)" : "0 1px 3px rgba(0,0,0,0.05)",
       }}
     >
       <div
@@ -200,7 +210,7 @@ function SectionCard({
           marginBottom: 16,
         }}
       >
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: isDark ? "#f1f5f9" : "#0f172a", margin: 0 }}>
           {title}
         </h3>
         {right}
@@ -211,7 +221,7 @@ function SectionCard({
 }
 
 // Lightweight inline bar chart for the monthly trend (no chart dependency).
-function TrendChart({ rows }: { rows: TrendRow[] }) {
+function TrendChart({ rows, isDark }: { rows: TrendRow[]; isDark: boolean }) {
   const max = Math.max(1, ...rows.map((r) => r.total_incidents));
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 200 }}>
@@ -236,7 +246,7 @@ function TrendChart({ rows }: { rows: TrendRow[] }) {
                 width: "100%",
                 maxWidth: 38,
                 height: totalH,
-                background: "#e2e8f0",
+                background: isDark ? "#334155" : "#e2e8f0",
                 borderRadius: "6px 6px 0 0",
                 display: "flex",
                 alignItems: "flex-end",
@@ -251,10 +261,10 @@ function TrendChart({ rows }: { rows: TrendRow[] }) {
                 }}
               />
             </div>
-            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: isDark ? "#94a3b8" : "#64748b", fontWeight: 600 }}>
               {monthLabel(r.month)}
             </span>
-            <span style={{ fontSize: 11, color: "#0f172a", fontWeight: 700 }}>
+            <span style={{ fontSize: 11, color: isDark ? "#f1f5f9" : "#0f172a", fontWeight: 700 }}>
               {r.total_incidents}
             </span>
           </div>
@@ -266,6 +276,9 @@ function TrendChart({ rows }: { rows: TrendRow[] }) {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 export default function Executive() {
+  const { isDark } = useTheme();
+  const selectStyle = useMemo(() => makeSelectStyle(isDark), [isDark]);
+  const inputStyle = useMemo(() => makeInputStyle(isDark), [isDark]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -523,20 +536,20 @@ export default function Executive() {
 
   if (loading) {
     return (
-      <div style={{ padding: 32, fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
-        <div style={{ fontSize: 16, color: "#64748b" }}>Loading executive overview…</div>
+      <div style={{ padding: 32, fontFamily: "'DM Sans','Segoe UI',sans-serif", background: isDark ? "#0f172a" : "#f8fafc", minHeight: "100vh" }}>
+        <div style={{ fontSize: 16, color: isDark ? "#94a3b8" : "#64748b" }}>Loading executive overview…</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ padding: 32, fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
+      <div style={{ padding: 32, fontFamily: "'DM Sans','Segoe UI',sans-serif", background: isDark ? "#0f172a" : "#f8fafc", minHeight: "100vh" }}>
         <div
           style={{
-            background: "#fef2f2",
-            border: "1px solid #fecaca",
-            color: "#b91c1c",
+            background: isDark ? "#3f1d1d" : "#fef2f2",
+            border: `1px solid ${isDark ? "#7f1d1d" : "#fecaca"}`,
+            color: isDark ? "#fca5a5" : "#b91c1c",
             borderRadius: 12,
             padding: 18,
           }}
@@ -552,7 +565,7 @@ export default function Executive() {
       style={{
         padding: "28px 32px 56px",
         fontFamily: "'DM Sans','Segoe UI',sans-serif",
-        background: "#f8fafc",
+        background: isDark ? "#0f172a" : "#f8fafc",
         minHeight: "100vh",
       }}
     >
@@ -568,10 +581,10 @@ export default function Executive() {
         }}
       >
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: isDark ? "#f1f5f9" : "#0f172a", margin: 0 }}>
             Executive Overview
           </h1>
-          <p style={{ fontSize: 14, color: "#64748b", margin: "6px 0 0" }}>
+          <p style={{ fontSize: 14, color: isDark ? "#94a3b8" : "#64748b", margin: "6px 0 0" }}>
             Read-only summary across all customers and districts.
           </p>
         </div>
@@ -582,7 +595,7 @@ export default function Executive() {
             display: "inline-flex",
             alignItems: "center",
             gap: 8,
-            background: "#0f172a",
+            background: isDark ? "#3b82f6" : "#0f172a",
             color: "#fff",
             border: "none",
             borderRadius: 10,
@@ -685,9 +698,9 @@ export default function Executive() {
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
-              background: "#f1f5f9",
-              color: "#475569",
-              border: "1px solid #e2e8f0",
+              background: isDark ? "#0f172a" : "#f1f5f9",
+              color: isDark ? "#cbd5e1" : "#475569",
+              border: `1px solid ${isDark ? "#475569" : "#e2e8f0"}`,
               borderRadius: 10,
               padding: "9px 13px",
               fontSize: 13,
@@ -699,7 +712,7 @@ export default function Executive() {
           </button>
         )}
 
-        <div style={{ marginLeft: "auto", fontSize: 12.5, color: "#94a3b8", paddingBottom: 6 }}>
+        <div style={{ marginLeft: "auto", fontSize: 12.5, color: isDark ? "#94a3b8" : "#94a3b8", paddingBottom: 6 }}>
           {filtersActive
             ? `Incident metrics reflect ${fmt(totalIncidents)} matching incidents. Panels, barrels, stages & visit KPIs are company-wide.`
             : "Showing all customers and districts."}
@@ -721,6 +734,7 @@ export default function Executive() {
           value={fmt(totalIncidents)}
           sub={`${fmt(openNewCount)} currently open (New)`}
           accent="#0ea5e9"
+          isDark={isDark}
         />
         <KpiCard
           icon={<ShieldAlert size={18} />}
@@ -728,6 +742,7 @@ export default function Executive() {
           value={xcRate ? pct(xcRate.totXc, xcRate.tot) : "—"}
           sub={xcRate ? `${xcRate.totXc} of ${xcRate.tot} (trailing)` : undefined}
           accent="#dc2626"
+          isDark={isDark}
         />
         <KpiCard
           icon={<Clock size={18} />}
@@ -735,6 +750,7 @@ export default function Executive() {
           value={fmt(aged90)}
           sub={`of ${fmt(totalOpen)} open`}
           accent="#f59e0b"
+          isDark={isDark}
         />
         <KpiCard
           icon={<TrendingUp size={18} />}
@@ -742,6 +758,7 @@ export default function Executive() {
           value={fmt(summary?.total_stages)}
           sub={`${fmt(summary?.total_barrels)} barrels`}
           accent="#16a34a"
+          isDark={isDark}
         />
         <KpiCard
           icon={<Building2 size={18} />}
@@ -749,6 +766,7 @@ export default function Executive() {
           value={fmt(summary?.total_xfire_panels)}
           sub={`${fmt(summary?.leased_xfire_panels)} leased`}
           accent="#7c3aed"
+          isDark={isDark}
         />
       </div>
 
@@ -763,11 +781,12 @@ export default function Executive() {
         className="exec-two-col"
       >
         <SectionCard
+          isDark={isDark}
           title="Incident Trend (last 12 months)"
           right={
-            <div style={{ display: "flex", gap: 14, fontSize: 12, color: "#64748b" }}>
+            <div style={{ display: "flex", gap: 14, fontSize: 12, color: isDark ? "#94a3b8" : "#64748b" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 11, height: 11, borderRadius: 3, background: "#e2e8f0", display: "inline-block" }} />
+                <span style={{ width: 11, height: 11, borderRadius: 3, background: isDark ? "#334155" : "#e2e8f0", display: "inline-block" }} />
                 Total
               </span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -778,13 +797,13 @@ export default function Executive() {
           }
         >
           {trend.length ? (
-            <TrendChart rows={trend} />
+            <TrendChart rows={trend} isDark={isDark} />
           ) : (
             <div style={{ color: "#94a3b8", fontSize: 13 }}>No incident data.</div>
           )}
         </SectionCard>
 
-        <SectionCard title="Open Incident Aging">
+        <SectionCard title="Open Incident Aging" isDark={isDark}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {aging.map((r) => {
               const ratio = totalOpen ? r.open_count / totalOpen : 0;
@@ -799,8 +818,8 @@ export default function Executive() {
                       marginBottom: 5,
                     }}
                   >
-                    <span style={{ color: "#475569", fontWeight: 600 }}>{r.age_bucket}</span>
-                    <span style={{ color: "#0f172a", fontWeight: 700 }}>
+                    <span style={{ color: isDark ? "#cbd5e1" : "#475569", fontWeight: 600 }}>{r.age_bucket}</span>
+                    <span style={{ color: isDark ? "#f1f5f9" : "#0f172a", fontWeight: 700 }}>
                       {r.open_count}
                       {r.xc_caused_count > 0 && (
                         <span style={{ color: "#dc2626", fontWeight: 600 }}>
@@ -814,7 +833,7 @@ export default function Executive() {
                     style={{
                       height: 9,
                       borderRadius: 5,
-                      background: "#f1f5f9",
+                      background: isDark ? "#0f172a" : "#f1f5f9",
                       overflow: "hidden",
                     }}
                   >
@@ -844,8 +863,9 @@ export default function Executive() {
           gap: 16,
         }}
       >
-        <SectionCard title="Top Customers by XC-Caused Incidents">
+        <SectionCard title="Top Customers by XC-Caused Incidents" isDark={isDark}>
           <Table
+            isDark={isDark}
             headers={["Customer", "XC-Caused", "Total", "Stages"]}
             rows={customers.map((c) => [
               <Link
@@ -863,8 +883,9 @@ export default function Executive() {
           />
         </SectionCard>
 
-        <SectionCard title="Districts — Stages per XC Incident">
+        <SectionCard title="Districts — Stages per XC Incident" isDark={isDark}>
           <Table
+            isDark={isDark}
             headers={["District", "XC-Caused", "Stages / XC Inc."]}
             rows={districts.map((d) => [
               <Link
@@ -895,7 +916,7 @@ export default function Executive() {
           display: "flex",
           gap: 14,
           fontSize: 13,
-          color: "#64748b",
+          color: isDark ? "#94a3b8" : "#64748b",
         }}
       >
         <Link
@@ -931,10 +952,12 @@ function Table({
   headers,
   rows,
   empty,
+  isDark,
 }: {
   headers: string[];
   rows: React.ReactNode[][];
   empty: string;
+  isDark: boolean;
 }) {
   if (!rows.length) {
     return <div style={{ color: "#94a3b8", fontSize: 13 }}>{empty}</div>;
@@ -949,8 +972,8 @@ function Table({
               style={{
                 textAlign: i === 0 ? "left" : "right",
                 padding: "8px 6px",
-                borderBottom: "1px solid #e2e8f0",
-                color: "#64748b",
+                borderBottom: `1px solid ${isDark ? "#334155" : "#e2e8f0"}`,
+                color: isDark ? "#94a3b8" : "#64748b",
                 fontSize: 12,
                 fontWeight: 600,
                 textTransform: "uppercase",
@@ -971,8 +994,8 @@ function Table({
                 style={{
                   textAlign: ci === 0 ? "left" : "right",
                   padding: "10px 6px",
-                  borderBottom: "1px solid #f1f5f9",
-                  color: "#0f172a",
+                  borderBottom: `1px solid ${isDark ? "#334155" : "#f1f5f9"}`,
+                  color: isDark ? "#f1f5f9" : "#0f172a",
                 }}
               >
                 {cell}
