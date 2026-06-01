@@ -200,7 +200,7 @@ export default function PanelDetail() {
     try {
       const { data, error } = await supabase
         .from('panel_change_log')
-        .select('id, field, field_label, old_value, new_value, changed_by, changed_at')
+        .select('id, entry_type, field, field_label, old_value, new_value, changed_by, changed_at')
         .or(`panel_row_id.eq.${panel.row_id},serial_number.eq.${panel.serial_number}`)
         .order('changed_at', { ascending: false })
         .limit(200);
@@ -226,6 +226,9 @@ export default function PanelDetail() {
     return value;
   };
   const fmtWhen = (iso: string): string => {
+    // Legacy snapshots with no parseable date were stamped with a sentinel of
+    // 2000-01-01; show those as undated rather than a misleading timestamp.
+    if (iso && iso.startsWith('2000-01-01')) return 'Legacy (date unknown)';
     try { return new Date(iso).toLocaleString(); } catch { return iso; }
   };
 
@@ -717,29 +720,45 @@ export default function PanelDetail() {
                   </p>
                 ) : (
                   <ol className="relative border-l border-gray-200 dark:border-gray-700 ml-2 space-y-4">
-                    {history.map((h) => (
-                      <li key={h.id} className="ml-4">
-                        <span className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-900" />
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {h.field_label}
-                          </span>
-                          <span className="text-xs text-gray-400">
-                            {fmtWhen(h.changed_at)}
-                            {h.changed_by ? ` · ${h.changed_by}` : ''}
-                          </span>
-                        </div>
-                        <div className="text-sm mt-0.5 flex flex-wrap items-center gap-1.5">
-                          <span className="line-through text-gray-400 break-all">
-                            {displayValue(h.field, h.old_value)}
-                          </span>
-                          <span className="text-gray-400">→</span>
-                          <span className="font-medium text-gray-900 dark:text-gray-100 break-all">
-                            {displayValue(h.field, h.new_value)}
-                          </span>
-                        </div>
-                      </li>
-                    ))}
+                    {history.map((h) => {
+                      const isSnapshot = h.entry_type === 'snapshot';
+                      return (
+                        <li key={h.id} className="ml-4">
+                          <span
+                            className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900 ${isSnapshot ? 'bg-amber-400' : 'bg-blue-500'}`}
+                          />
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {h.field_label}
+                            </span>
+                            {isSnapshot && (
+                              <span className="text-[10px] uppercase tracking-wide font-medium px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                Legacy
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-400">
+                              {fmtWhen(h.changed_at)}
+                              {h.changed_by ? ` · ${h.changed_by}` : ''}
+                            </span>
+                          </div>
+                          {isSnapshot ? (
+                            <div className="text-sm mt-0.5 text-gray-600 dark:text-gray-300 break-words">
+                              {h.new_value || '—'}
+                            </div>
+                          ) : (
+                            <div className="text-sm mt-0.5 flex flex-wrap items-center gap-1.5">
+                              <span className="line-through text-gray-400 break-all">
+                                {displayValue(h.field, h.old_value)}
+                              </span>
+                              <span className="text-gray-400">→</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100 break-all">
+                                {displayValue(h.field, h.new_value)}
+                              </span>
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ol>
                 )}
               </CardContent>
