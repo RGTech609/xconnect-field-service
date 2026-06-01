@@ -165,6 +165,12 @@ export const qcPalletApi = {
   // Suggested AQL Level II sample size for a given lot total.
   aql: (lot: number, token?: string) =>
     apiRequest(`/qc-aql?lot=${encodeURIComponent(lot)}`, {}, token),
+  // Parse extracted slip text -> structured header fields (no DB writes).
+  parseSlip: (text: string, token?: string) =>
+    apiRequest('/qc-slip/parse', { method: 'POST', body: JSON.stringify({ text }) }, token),
+  // Create one pallet per fulfillment id from a parsed slip header.
+  createFromSlip: (payload: any, token?: string) =>
+    apiRequest('/qc-pallets/from-slip', { method: 'POST', body: JSON.stringify(payload) }, token),
   saveGun: (gunId: string, payload: any, token?: string) =>
     apiRequest(`/qc-guns/${gunId}`, { method: 'PUT', body: JSON.stringify(payload) }, token),
   signoff: (id: string, signedOffBy: string, token?: string) =>

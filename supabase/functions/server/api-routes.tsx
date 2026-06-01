@@ -1254,6 +1254,7 @@ apiRoutes.post("/driver-loads/:id/items", async (c) => {
 const QC_PALLET_FIELDS = [
   'build_no','customer','destination','load_type','guns_total',
   'guns_in_pallet','sample_size',
+  'sales_order','fulfillment_id','operator',
   'status','signed_off_by','signed_off_at','notes','updated_by',
 ];
 function pickQcPallet(body: Record<string, unknown>) {
@@ -1284,6 +1285,110 @@ function aqlSampleSize(lot: number): number {
   if (n <= 35000) return 315;
   return 500;
 }
+
+// ── Slip parsing ──────────────────────────────────────────────────────────────
+// Parse plain text extracted (browser-side, via pdfjs) from a NetSuite packing
+// slip or pallet build slip into structured QC header fields.
+function parseSlipText(text: string) {
+  const clean = String(text || '').replace(/\r/g, '');
+  const get = (re: RegExp) => {
+    const m = clean.match(re);
+    return m ? m[1].trim() : null;
+  };
+  const sales_order = get(/Sales Order\s*#?\s*(SO\d+)/i) || get(/#?(SO\d+)\b/i);
+  const fulfillment_ids = [...new Set([...clean.matchAll(/IF\d+/gi)].map((m) => m[0].toUpperCase()))];
+  const customer = get(/Customer\s*\n\s*([^\n]+)/i);
+  const operator = get(/Operator\s*\n\s*([^\n]+)/i);
+  const additional_reference = get(/Additional Reference\s*\n\s*([^\n]+)/i);
+  const date = get(/Date(?: Built \/ Staged)?\s*\n\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i)
+    || get(/\b([0-9]{2}\/[0-9]{2}\/[0-9]{4})\b/);
+
+  // Per-pallet gun lot size: barrel ASM qty on a build slip.
+  let gun_qty: number | null = null;
+  const barrelLine = clean.match(/Banded Barrel[^\n]*\n(?:\s*\n)?\s*(\d+)/i);
+  if (barrelLine) gun_qty = Number(barrelLine[1]);
+
+  const gunHeader = get(/(\d+\s*Shot[^\n]*Gun[^\n]*)/i);
+  let load_type: string | null = null;
+  if (gunHeader) {
+    load_type = /unloaded/i.test(gunHeader) ? 'unloaded' : (/loaded/i.test(gunHeader) ? 'loaded' : null);
+  }
+
+  let destination: string | null = null;
+  if (additional_reference && /WIL/i.test(additional_reference)) destination = 'Williston';
+  else if (additional_reference && /MID/i.test(additional_reference)) destination = 'Midland';
+  if (!destination && /Williston/i.test(clean)) destination = 'Williston';
+  if (!destination && /Midland/i.test(clean)) destination = 'Midland';
+
+  const doc_type = /Pallet Build Slip/i.test(clean) ? 'build_slip'
+    : /Packing Slip/i.test(clean) ? 'packing_slip' : 'unknown';
+
+  return { doc_type, sales_order, fulfillment_ids, customer, operator, destination, date, gun_qty, load_type };
+}
+
+// POST /qc-slip/parse  body: { text }  -> parsed fields (no DB writes)
+apiRoutes.post("/qc-slip/parse", async (c) => {
+  try {
+    const body = await c.req.json();
+    return c.json(parseSlipText(String(body.text || '')));
+  } catch (error) {
+    console.error('Error parsing slip:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
+
+// POST /qc-pallets/from-slip
+// body: { sales_order, customer, operator, destination, load_type, guns_in_pallet?,
+//         fulfillment_ids: [..], updated_by }
+// Creates one pallet per fulfillment id, sharing the header. Skips IDs that
+// already have a pallet (same sales_order + fulfillment_id). Returns created list.
+apiRoutes.post("/qc-pallets/from-slip", async (c) => {
+  try {
+    const body = await c.req.json();
+    const ids: string[] = Array.isArray(body.fulfillment_ids)
+      ? [...new Set(body.fulfillment_ids.map((x: unknown) => String(x).toUpperCase()).filter(Boolean))]
+      : [];
+    if (!ids.length) return c.json({ error: 'No fulfillment ids provided' }, 400);
+
+    const shared = {
+      sales_order: body.sales_order ?? null,
+      customer: body.customer ?? null,
+      operator: body.operator ?? null,
+      destination: body.destination ?? null,
+      load_type: body.load_type ?? 'loaded',
+      guns_in_pallet: body.guns_in_pallet != null && body.guns_in_pallet !== ''
+        ? Number(body.guns_in_pallet) : null,
+      updated_by: body.updated_by ?? null,
+    };
+
+    const created: any[] = [];
+    const skipped: string[] = [];
+    for (const fid of ids) {
+      // Skip if a pallet already exists for this SO+IF.
+      let existsQ = supabase.from('qc_pallets').select('row_id').eq('fulfillment_id', fid);
+      if (shared.sales_order) existsQ = existsQ.eq('sales_order', shared.sales_order);
+      const { data: existing } = await existsQ.limit(1);
+      if (existing && existing.length) { skipped.push(fid); continue; }
+
+      const row: Record<string, unknown> = {
+        ...shared,
+        fulfillment_id: fid,
+        build_no: shared.sales_order ? `${shared.sales_order}-${fid}` : fid,
+        status: 'open',
+      };
+      const { data, error } = await supabase.from('qc_pallets').insert(row).select().single();
+      if (error) {
+        console.error('Error creating pallet from slip:', error);
+        return c.json({ error: error.message }, 500);
+      }
+      created.push(data);
+    }
+    return c.json({ created, skipped });
+  } catch (error) {
+    console.error('Error in from-slip endpoint:', error);
+    return c.json({ error: String(error) }, 500);
+  }
+});
 
 // List pallets (most recent first).
 apiRoutes.get("/qc-pallets", async (c) => {
