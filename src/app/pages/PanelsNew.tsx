@@ -51,7 +51,7 @@ export default function PanelsNew() {
   const [filterCustomer, setFilterCustomer] = useState('');
   const [filterDistrict, setFilterDistrict] = useState('');
   const [filterStatus,   setFilterStatus]   = useState('');
-  const [filterVerified, setFilterVerified] = useState('');
+  const [filterVerified, setFilterVerified] = useState('yes'); // default to verified-only view
   const [searchText,     setSearchText]     = useState('');
 
   // Firmware update tracking
@@ -198,13 +198,15 @@ export default function PanelsNew() {
     setFilterCustomer('');
     setFilterDistrict('');
     setFilterStatus('');
-    setFilterVerified('');
+    setFilterVerified('yes'); // reset to the default verified-only view
     setFirmwareFilter('');
     setSearchText('');
     window.history.replaceState({}, '', window.location.pathname);
   };
 
-  const filtersActive = !!(filterCustomer || filterDistrict || filterStatus || filterVerified || firmwareFilter || searchText.trim());
+  // The Verified filter defaults to 'yes', so it only counts as an "active"
+  // filter when the user has moved it off the default (to 'no' or All).
+  const filtersActive = !!(filterCustomer || filterDistrict || filterStatus || (filterVerified && filterVerified !== 'yes') || firmwareFilter || searchText.trim());
 
   // Save firmware target versions (admin only).
   const saveFirmwareTargets = async (next: Record<FirmwareField, string>) => {
