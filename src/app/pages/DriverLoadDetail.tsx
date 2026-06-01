@@ -55,6 +55,9 @@ export default function DriverLoadDetail() {
   // Per-pallet documents rolled up from each linked QC pallet (build slip PDF + QC photos),
   // keyed by source_pallet_row_id, so the driver sees all docs on the load.
   const [palletDocs, setPalletDocs] = useState<Record<string, any[]>>({});
+  // Full pallet records (sales_order / customer / destination) for the linked pallets,
+  // keyed by source_pallet_row_id, used to auto-compute Document Correlation.
+  const [palletMeta, setPalletMeta] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -122,20 +125,25 @@ export default function DriverLoadDetail() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const next: Record<string, any[]> = {};
+      const nextDocs: Record<string, any[]> = {};
+      const nextMeta: Record<string, any> = {};
       await Promise.all(
         linkedPalletIds.map(async (pid) => {
           try {
             const res = await qcPalletFileApi.list(pid, accessToken || undefined);
             const files: any[] = Array.isArray(res?.files) ? res.files : [];
             // Only surface build slip PDFs and QC photos (not the verification selfie).
-            next[pid] = files.filter(
+            nextDocs[pid] = files.filter(
               (f) => f.field_name === 'build_slip_pdf' || f.field_name === 'slip_pdf' || f.field_name === 'qc_photo'
             );
-          } catch { next[pid] = []; }
+          } catch { nextDocs[pid] = []; }
+          try {
+            const rec = await qcPalletApi.get(pid, accessToken || undefined);
+            nextMeta[pid] = rec || null;
+          } catch { nextMeta[pid] = null; }
         })
       );
-      if (!cancelled) setPalletDocs(next);
+      if (!cancelled) { setPalletDocs(nextDocs); setPalletMeta(nextMeta); }
     })();
     return () => { cancelled = true; };
   }, [linkedPalletIds.join(','), accessToken]);
@@ -168,6 +176,13 @@ export default function DriverLoadDetail() {
   // ── field helpers ───────────────────────────────────────────────────────────
   const setField = (key: string, value: any) => setLoad((prev: any) => ({ ...prev, [key]: value }));
 
+  // Set the packing slip number for a specific Sales Order group.
+  const setSlipNoFor = (so: string, value: string) =>
+    setLoad((prev: any) => {
+      const cur = (prev?.packing_slips_by_so && typeof prev.packing_slips_by_so === 'object') ? prev.packing_slips_by_so : {};
+      return { ...prev, packing_slips_by_so: { ...cur, [so]: value } };
+    });
+
   const toggleExplosiveType = (key: string) => {
     setLoad((prev: any) => {
       const cur: string[] = Array.isArray(prev.explosive_types) ? prev.explosive_types : [];
@@ -182,8 +197,10 @@ export default function DriverLoadDetail() {
 
   const requiredPhotos = useMemo(() => {
     if (!load) return [] as { fieldName: string; label: string }[];
+    // NOTE: the packing slip photo is now required per Sales Order via the
+    // automated Document Correlation gate (one packing slip per SO), so it is
+    // no longer a single load-level required photo here.
     const reqs: { fieldName: string; label: string }[] = [
-      { fieldName: 'packing_slip', label: 'Packing Slip' },
       { fieldName: 'driver_side', label: 'Driver-side' },
       { fieldName: 'passenger_side', label: 'Passenger-side' },
     ];
@@ -197,6 +214,83 @@ export default function DriverLoadDetail() {
     () => requiredPhotos.filter((r) => !hasPhoto(r.fieldName)),
     [requiredPhotos, photoFieldNames]
   );
+
+  // ── automated Document Correlation (grouped by Sales Order) ───────────────────
+  // A load may carry pallets from multiple Sales Orders, each with its own
+  // packing slip. We group the linked pallets by SO and verify, per group:
+  //  - the SO group has a packing slip number entered AND a packing slip photo
+  //  - customer is consistent within the group
+  //  - destination is consistent within the group
+  // The load is "Correlated" only when every SO group passes. Each pallet's
+  // build slip is separately verified against the physical slip during QC.
+  const norm = (v: any) => String(v ?? '').trim().toLowerCase();
+  // Per-SO packing slip photo field name on driver_loads (namespaced).
+  const slipPhotoField = (so: string) => `packing_slip__${String(so).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+
+  const soGroups = useMemo(() => {
+    const linkedItems = items.filter((it) => it.source_pallet_row_id);
+    const map: Record<string, { so: string; metas: any[]; count: number }> = {};
+    for (const it of linkedItems) {
+      const m = palletMeta[it.source_pallet_row_id as string];
+      const so = (m?.sales_order || '').trim() || '(no SO)';
+      if (!map[so]) map[so] = { so, metas: [], count: 0 };
+      if (m) map[so].metas.push(m);
+      map[so].count += 1;
+    }
+    return Object.values(map).sort((a, b) => a.so.localeCompare(b.so));
+  }, [items, palletMeta]);
+
+  const slipNoFor = (so: string) =>
+    (load?.packing_slips_by_so && typeof load.packing_slips_by_so === 'object'
+      ? load.packing_slips_by_so[so]
+      : '') || '';
+
+  const correlation = useMemo(() => {
+    const checks: { ok: boolean; label: string; detail?: string }[] = [];
+    const linkedCount = items.filter((it) => it.source_pallet_row_id).length;
+
+    // 0. At least one pallet on the load.
+    checks.push({
+      ok: linkedCount > 0,
+      label: 'At least one QC-passed pallet on the load',
+      detail: linkedCount ? `${linkedCount} pallet(s) across ${soGroups.length} Sales Order(s)` : 'No pallets added',
+    });
+
+    // Per-SO group checks.
+    for (const g of soGroups) {
+      const hasSo = g.so !== '(no SO)';
+      const custs = Array.from(new Set(g.metas.map((m) => norm(m.customer)).filter(Boolean)));
+      const dests = Array.from(new Set(g.metas.map((m) => norm(m.destination)).filter(Boolean)));
+      const hasSlipNo = !!norm(slipNoFor(g.so));
+      const hasSlipPhoto = hasPhoto(slipPhotoField(g.so));
+      const custOk = custs.length <= 1;
+      const destOk = dests.length <= 1;
+      const groupOk = hasSo && hasSlipNo && hasSlipPhoto && custOk && destOk;
+      const problems: string[] = [];
+      if (!hasSo) problems.push('pallet missing Sales Order');
+      if (!hasSlipNo) problems.push('no packing slip #');
+      if (!hasSlipPhoto) problems.push('no packing slip photo');
+      if (!custOk) problems.push(`mixed customers (${custs.join(', ')})`);
+      if (!destOk) problems.push(`mixed destinations (${dests.join(', ')})`);
+      checks.push({
+        ok: groupOk,
+        label: `${g.so} — ${g.count} pallet(s)`,
+        detail: groupOk ? 'packing slip + paperwork correlated' : problems.join('; '),
+      });
+    }
+
+    const allOk = checks.every((c) => c.ok);
+    return { checks, allOk };
+  }, [items, soGroups, load, photoFieldNames]);
+
+  // Keep the persisted document_correlation flag in lockstep with the automated
+  // result so the existing departure blocker + saved record stay accurate.
+  useEffect(() => {
+    if (!load) return;
+    if (!!load.document_correlation !== correlation.allOk) {
+      setLoad((prev: any) => (prev ? { ...prev, document_correlation: correlation.allOk } : prev));
+    }
+  }, [correlation.allOk, load?.document_correlation]);
 
   // ── readiness validation ─────────────────────────────────────────────────────
   const blockers = useMemo(() => {
@@ -551,21 +645,71 @@ export default function DriverLoadDetail() {
         <Card>
           <CardHeader><CardTitle className="text-lg">3. Paperwork</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Packing Slip #</Label>
-                <Input value={load.packing_slip_no || ''} onChange={(e) => setField('packing_slip_no', e.target.value)} />
-              </div>
-              <div className="flex items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 self-end">
-                <Label className="cursor-pointer">Hazmat Load</Label>
-                <Switch checked={!!load.hazmat_load} onCheckedChange={(v) => setField('hazmat_load', v)} />
-              </div>
+            <div className="flex items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2">
+              <Label className="cursor-pointer">Hazmat Load</Label>
+              <Switch checked={!!load.hazmat_load} onCheckedChange={(v) => setField('hazmat_load', v)} />
             </div>
-            {photoUploader('packing_slip', 'Packing Slip photo', true)}
+
+            {/* Packing slips — one per Sales Order on this load. */}
+            <div className="space-y-3">
+              <Label className="font-medium">Packing Slips (one per Sales Order)</Label>
+              {soGroups.length === 0 ? (
+                <p className="text-xs text-gray-400">Add QC-passed pallets above; a packing slip section appears per Sales Order.</p>
+              ) : soGroups.map((g) => {
+                const field = slipPhotoField(g.so);
+                const slipNo = slipNoFor(g.so);
+                const ok = g.so !== '(no SO)' && !!String(slipNo).trim() && hasPhoto(field);
+                return (
+                  <div key={g.so} className={`rounded-md border px-3 py-3 ${ok ? 'border-green-300 bg-green-50 dark:bg-green-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-medium">
+                        Sales Order {g.so === '(no SO)' ? <span className="text-amber-600">(missing on pallet)</span> : g.so}
+                        <span className="text-gray-500 font-normal"> · {g.count} pallet(s)</span>
+                      </div>
+                      {ok
+                        ? <Badge variant="default" className="text-[10px]">Correlated</Badge>
+                        : <Badge variant="outline" className="text-[10px]">Incomplete</Badge>}
+                    </div>
+                    <div className="mb-2">
+                      <Label className="text-sm">Packing Slip #</Label>
+                      <Input
+                        value={slipNo}
+                        onChange={(e) => setSlipNoFor(g.so, e.target.value)}
+                        placeholder="e.g. PS-12345"
+                        disabled={g.so === '(no SO)'}
+                      />
+                    </div>
+                    {g.so !== '(no SO)' && photoUploader(field, 'Packing Slip photo', true)}
+                  </div>
+                );
+              })}
+            </div>
+
             {load.hazmat_load && photoUploader('hazmat', 'Hazmat photo', true)}
-            <div className={`flex items-center justify-between rounded-md border px-3 py-2 ${load.document_correlation ? 'border-green-300 bg-green-50 dark:bg-green-900/10' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/10'}`}>
-              <Label className="cursor-pointer font-medium">Document Correlation confirmed (hard blocker)</Label>
-              <Switch checked={!!load.document_correlation} onCheckedChange={(v) => setField('document_correlation', v)} />
+            {/* Automated Document Correlation: cross-checks packing slip vs pallets on the load. */}
+            <div className={`rounded-md border px-3 py-3 ${correlation.allOk ? 'border-green-300 bg-green-50 dark:bg-green-900/10' : 'border-amber-300 bg-amber-50 dark:bg-amber-900/10'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="font-medium">Document Correlation (automated — hard blocker)</Label>
+                {correlation.allOk
+                  ? <Badge variant="default" className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Correlated</Badge>
+                  : <Badge variant="outline" className="inline-flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Not correlated</Badge>}
+              </div>
+              <ul className="space-y-1">
+                {correlation.checks.map((c, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    {c.ok
+                      ? <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                      : <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />}
+                    <span>
+                      {c.label}
+                      {c.detail ? <span className="text-gray-500"> — {c.detail}</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-gray-500 mt-2">
+                Auto-verified per Sales Order from the linked QC pallets and packing slips. Every Sales Order group must be correlated to clear the blocker.
+              </p>
             </div>
           </CardContent>
         </Card>

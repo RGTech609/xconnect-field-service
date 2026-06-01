@@ -1108,7 +1108,7 @@ apiRoutes.delete("/panels/:id", requireAdmin, async (c) => {
 // Whitelist of columns writable from the client, to avoid mass-assignment.
 const DRIVER_LOAD_FIELDS = [
   'load_number','delivery_date','origin_district','customer','customer_district',
-  'destination','packing_slip_no','mode_of_delivery','trailer_connected','driver_type',
+  'destination','packing_slip_no','packing_slips_by_so','mode_of_delivery','trailer_connected','driver_type',
   'driver','driver_name','driver_company','hazmat_load','hardware_present',
   'ancillary_explosives','explosive_types','document_correlation','items_secure',
   'driver_sig_url','inspector_name','inspector_sig_url','manager_name','manager_sig_url',
