@@ -198,6 +198,9 @@ export default function QcPalletDetail() {
         id,
         {
           build_no: pallet.build_no || null,
+          sales_order: pallet.sales_order || null,
+          fulfillment_id: pallet.fulfillment_id || null,
+          operator: pallet.operator || null,
           customer: pallet.customer || null,
           destination: pallet.destination || null,
           load_type: pallet.load_type || 'loaded',
@@ -302,6 +305,18 @@ export default function QcPalletDetail() {
           <CardHeader><CardTitle className="text-lg">Pallet & Order Paperwork</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Sales Order</Label>
+                <Input value={pallet.sales_order || ''} onChange={(e) => setPalletField('sales_order', e.target.value)} placeholder="e.g. SO4698" />
+              </div>
+              <div>
+                <Label>Order Fulfillment</Label>
+                <Input value={pallet.fulfillment_id || ''} onChange={(e) => setPalletField('fulfillment_id', e.target.value)} placeholder="e.g. IF37624" />
+              </div>
+              <div>
+                <Label>Operator</Label>
+                <Input value={pallet.operator || ''} onChange={(e) => setPalletField('operator', e.target.value)} placeholder="e.g. Kraken Operating" />
+              </div>
               <div>
                 <Label>Build #</Label>
                 <Input value={pallet.build_no || ''} onChange={(e) => setPalletField('build_no', e.target.value)} />
