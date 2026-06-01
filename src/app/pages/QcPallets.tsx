@@ -133,6 +133,11 @@ export default function QcPallets() {
     }
     setCreating(true);
     try {
+      // requires_qc / item_category come from slip detection: gun pallets get QC,
+      // hardware / spare-parts pallets skip it. guns_in_pallet is only the true
+      // per-pallet lot from a build slip (already capped server-side); a packing
+      // slip leaves it unset so the server defaults gun pallets to capacity.
+      const requiresQc = parsed.requires_qc !== false && parsed.is_gun !== false;
       const res = await qcPalletApi.createFromSlip(
         {
           sales_order: parsed.sales_order || null,
@@ -140,7 +145,9 @@ export default function QcPallets() {
           operator: parsed.operator || null,
           destination: parsed.destination || null,
           load_type: parsed.load_type || 'loaded',
-          guns_in_pallet: parsed.gun_qty || null,  // only set for single build slip
+          guns_in_pallet: requiresQc ? (parsed.gun_qty || null) : null,
+          requires_qc: requiresQc,
+          item_category: parsed.item_category || (requiresQc ? 'guns' : 'hardware'),
           fulfillment_ids: ids,
           updated_by: user?.email,
         },
@@ -271,14 +278,25 @@ export default function QcPallets() {
                         </div>
                       </div>
 
-                      {parsed.gun_qty ? (
+                      {parsed.is_gun === false ? (
+                        <p className="text-xs text-amber-600">
+                          Hardware / spare parts detected — these pallets are <span className="font-medium">not QC'd</span>
+                          {' '}(no gun inspection). They can still be added to a driver load.
+                        </p>
+                      ) : parsed.doc_type === 'packing_slip' ? (
                         <p className="text-xs text-gray-600">
-                          Detected lot size: <span className="font-medium">{parsed.gun_qty}</span> guns
-                          {' '}(applied to each created pallet).
+                          Packing slip lists the whole-order total
+                          {parsed.order_qty ? <> (<span className="font-medium">{parsed.order_qty}</span> barrels across all fulfillments)</> : null}.
+                          {' '}Each pallet defaults to <span className="font-medium">100</span> guns (max per pallet); the build slip confirms the exact per-pallet count.
+                        </p>
+                      ) : parsed.gun_qty ? (
+                        <p className="text-xs text-gray-600">
+                          Detected per-pallet lot: <span className="font-medium">{parsed.gun_qty}</span> guns
+                          {' '}(max 100; applied to each created pallet).
                         </p>
                       ) : (
                         <p className="text-xs text-gray-500">
-                          No per-pallet gun count on this slip — set the lot size on each pallet later.
+                          No per-pallet gun count on this slip — set the lot size (max 100) on each pallet later.
                         </p>
                       )}
 
@@ -416,11 +434,21 @@ export default function QcPallets() {
                               <TableCell>{p.destination || '-'}</TableCell>
                               <TableCell className="capitalize">{p.load_type || '-'}</TableCell>
                               <TableCell>
-                                {(p.guns_passed ?? 0)}/{(p.guns_total ?? p.guns_count ?? 0)}
-                                {p.guns_in_pallet ? <span className="text-gray-400"> · of {p.guns_in_pallet}</span> : null}
-                                {p.guns_failed ? <span className="text-red-600"> ({p.guns_failed} failed)</span> : null}
+                                {p.requires_qc === false ? (
+                                  <span className="text-gray-400">— no QC</span>
+                                ) : (
+                                  <>
+                                    {(p.guns_passed ?? 0)}/{(p.guns_total ?? p.guns_count ?? 0)}
+                                    {p.guns_in_pallet ? <span className="text-gray-400"> · of {p.guns_in_pallet}</span> : null}
+                                    {p.guns_failed ? <span className="text-red-600"> ({p.guns_failed} failed)</span> : null}
+                                  </>
+                                )}
                               </TableCell>
-                              <TableCell>{getStatusBadge(p.status)}</TableCell>
+                              <TableCell>
+                                {p.requires_qc === false
+                                  ? <Badge variant="outline">Hardware · no QC</Badge>
+                                  : getStatusBadge(p.status)}
+                              </TableCell>
                               <TableCell>{p.signed_off_by || '-'}</TableCell>
                             </TableRow>
                           ))}
