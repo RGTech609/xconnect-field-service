@@ -58,6 +58,10 @@ export default function QcPalletDetail() {
 
   const isAdmin = user?.role === 'admin';
   const isUnloaded = pallet?.load_type === 'unloaded';
+  // A single pallet can hold at most this many perforating guns.
+  const MAX_GUNS_PER_PALLET = 100;
+  // Hardware / spare-parts pallets do not get gun QC.
+  const requiresQc = pallet?.requires_qc !== false;
 
   // AQL ANSI/ASQC Z1.4 — General Inspection Level II. Lot size → suggested sample.
   const aqlSampleSize = (lot: number): number => {
@@ -175,7 +179,13 @@ export default function QcPalletDetail() {
     }
     if (guns.length > 0 && !confirm(`This will reset all ${guns.length} existing gun records. Continue?`)) return;
     const lot = Number(lotInput);
-    const lotVal = Number.isFinite(lot) && lot > 0 ? lot : undefined;
+    let lotVal = Number.isFinite(lot) && lot > 0 ? lot : undefined;
+    if (lotVal !== undefined && lotVal > MAX_GUNS_PER_PALLET) {
+      // A pallet can never hold more than the cap; correct it before continuing.
+      lotVal = MAX_GUNS_PER_PALLET;
+      setLotInput(String(MAX_GUNS_PER_PALLET));
+      toast.warning(`A pallet holds at most ${MAX_GUNS_PER_PALLET} guns — total set to ${MAX_GUNS_PER_PALLET}.`);
+    }
     if (lotVal !== undefined && n > lotVal) {
       toast.error('Sample size cannot exceed total guns in the pallet');
       return;
@@ -475,7 +485,20 @@ export default function QcPalletDetail() {
           </CardContent>
         </Card>
 
-        {/* Gun sampling */}
+        {/* Gun sampling — only for gun pallets. Hardware / spare-parts pallets
+            skip QC entirely. */}
+        {!requiresQc ? (
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Sampling &amp; Guns</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-700">
+                This pallet is <span className="font-medium">hardware / spare parts</span>
+                {pallet?.item_category && pallet.item_category !== 'hardware' ? ` (${pallet.item_category})` : ''}
+                {' '}— no gun inspection is required. It can be added to a driver load directly.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
         <Card>
           <CardHeader><CardTitle className="text-lg">Sampling &amp; Guns</CardTitle></CardHeader>
           <CardContent>
@@ -485,9 +508,16 @@ export default function QcPalletDetail() {
                 <Input
                   type="number"
                   min={1}
+                  max={MAX_GUNS_PER_PALLET}
                   placeholder="e.g. 100"
                   value={lotInput}
-                  onChange={(e) => setLotInput(e.target.value)}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') { setLotInput(''); return; }
+                    const n = Math.floor(Number(raw));
+                    if (!Number.isFinite(n)) { setLotInput(raw); return; }
+                    setLotInput(String(Math.min(Math.max(n, 0), MAX_GUNS_PER_PALLET)));
+                  }}
                 />
               </div>
               <div className="w-40">
@@ -508,6 +538,9 @@ export default function QcPalletDetail() {
                 {guns.length > 0 ? 'Reset & re-init guns' : 'Initialise guns'}
               </Button>
             </div>
+            <p className="text-xs text-gray-400 mt-1">
+              Max {MAX_GUNS_PER_PALLET} guns per pallet. The build slip confirms the exact per-pallet count.
+            </p>
             {suggestedSample != null && (
               <p className="text-xs text-gray-500 mt-2">
                 AQL Level II suggests inspecting <span className="font-medium">{suggestedSample}</span>
@@ -527,6 +560,7 @@ export default function QcPalletDetail() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Progress */}
         {total > 0 && (

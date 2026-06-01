@@ -1251,15 +1251,29 @@ apiRoutes.post("/driver-loads/:id/items", async (c) => {
 
 // ============ QC PALLETS (perforating gun inspection) ============
 
+// A single pallet can physically hold at most this many perforating guns.
+// Build slips report the true per-pallet count (<= this); packing slips report
+// the whole-order total across all fulfillments, which is NOT a per-pallet lot.
+const MAX_GUNS_PER_PALLET = 100;
+// Clamp any per-pallet gun lot to [1, MAX]; null/0/invalid -> null.
+function clampGunsInPallet(v: unknown): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(Math.floor(n), MAX_GUNS_PER_PALLET);
+}
+
 const QC_PALLET_FIELDS = [
   'build_no','customer','destination','load_type','guns_total',
   'guns_in_pallet','sample_size',
   'sales_order','fulfillment_id','operator',
   'status','signed_off_by','signed_off_at','notes','updated_by',
+  'requires_qc','item_category',
 ];
 function pickQcPallet(body: Record<string, unknown>) {
   const out: Record<string, unknown> = {};
   for (const k of QC_PALLET_FIELDS) if (k in body) out[k] = body[k];
+  // Enforce the per-pallet gun cap regardless of client input.
+  if ('guns_in_pallet' in out) out.guns_in_pallet = clampGunsInPallet(out.guns_in_pallet);
   return out;
 }
 
@@ -1303,15 +1317,43 @@ function parseSlipText(text: string) {
   const date = get(/Date(?: Built \/ Staged)?\s*\n\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i)
     || get(/\b([0-9]{2}\/[0-9]{2}\/[0-9]{4})\b/);
 
-  // Per-pallet gun lot size: barrel ASM qty on a build slip.
-  let gun_qty: number | null = null;
-  const barrelLine = clean.match(/Banded Barrel[^\n]*\n(?:\s*\n)?\s*(\d+)/i);
-  if (barrelLine) gun_qty = Number(barrelLine[1]);
+  const doc_type = /Pallet Build Slip/i.test(clean) ? 'build_slip'
+    : /Packing Slip/i.test(clean) ? 'packing_slip' : 'unknown';
 
+  // Gun vs. non-gun (hardware / spare parts) detection. A pallet is QC'd only
+  // when it contains perforating guns. We treat a slip as "guns" when it has a
+  // gun header line (e.g. "3 Shot XConnect Loaded Gun") or a "Banded Barrel"
+  // ASM line; otherwise it is hardware/spare parts and skips QC.
   const gunHeader = get(/(\d+\s*Shot[^\n]*Gun[^\n]*)/i);
+  const hasBarrel = /Banded Barrel/i.test(clean);
+  const is_gun = !!gunHeader || hasBarrel;
+  const item_category = is_gun ? 'guns' : 'hardware';
+
   let load_type: string | null = null;
   if (gunHeader) {
     load_type = /unloaded/i.test(gunHeader) ? 'unloaded' : (/loaded/i.test(gunHeader) ? 'loaded' : null);
+  }
+
+  // Barrel ASM quantity. On a BUILD slip this is the true per-pallet gun count
+  // (always <= MAX_GUNS_PER_PALLET). On a PACKING slip it is the whole-order
+  // total across every fulfillment, so it is NOT a per-pallet lot.
+  let barrel_qty: number | null = null;
+  const barrelLine = clean.match(/Banded Barrel[^\n]*\n(?:\s*\n)?\s*(\d+)/i);
+  if (barrelLine) barrel_qty = Number(barrelLine[1]);
+
+  // gun_qty = per-pallet lot, only trustworthy from a build slip (and capped).
+  // order_qty = full-order total, surfaced from a packing slip for reference.
+  let gun_qty: number | null = null;
+  let order_qty: number | null = null;
+  if (is_gun) {
+    if (doc_type === 'build_slip') {
+      gun_qty = clampGunsInPallet(barrel_qty);
+    } else if (doc_type === 'packing_slip') {
+      order_qty = (barrel_qty != null && barrel_qty > 0) ? barrel_qty : null;
+      // Do NOT set gun_qty from a packing slip: it is an order total, not a lot.
+    } else {
+      gun_qty = clampGunsInPallet(barrel_qty);
+    }
   }
 
   let destination: string | null = null;
@@ -1319,9 +1361,6 @@ function parseSlipText(text: string) {
   else if (additional_reference && /MID/i.test(additional_reference)) destination = 'Midland';
   if (!destination && /Williston/i.test(clean)) destination = 'Williston';
   if (!destination && /Midland/i.test(clean)) destination = 'Midland';
-
-  const doc_type = /Pallet Build Slip/i.test(clean) ? 'build_slip'
-    : /Packing Slip/i.test(clean) ? 'packing_slip' : 'unknown';
 
   // Packing slip number. NetSuite embeds it in the title line, e.g.
   // "Packing Slip - Sales Order #SO4698-PS-8455" -> PS-8455. Also handle a
@@ -1335,7 +1374,11 @@ function parseSlipText(text: string) {
     if (m) packing_slip_no = norm(m[1]);
   }
 
-  return { doc_type, sales_order, packing_slip_no, fulfillment_ids, customer, operator, destination, date, gun_qty, load_type };
+  return {
+    doc_type, sales_order, packing_slip_no, fulfillment_ids, customer, operator,
+    destination, date, gun_qty, order_qty, load_type,
+    is_gun, item_category, requires_qc: is_gun, max_guns_per_pallet: MAX_GUNS_PER_PALLET,
+  };
 }
 
 // POST /qc-slip/parse  body: { text }  -> parsed fields (no DB writes)
@@ -1362,14 +1405,29 @@ apiRoutes.post("/qc-pallets/from-slip", async (c) => {
       : [];
     if (!ids.length) return c.json({ error: 'No fulfillment ids provided' }, 400);
 
+    // Whether these pallets hold perforating guns (QC required) or hardware /
+    // spare parts (no QC). Defaults to guns unless explicitly told otherwise.
+    const requires_qc = body.requires_qc === false ? false : true;
+    const item_category = body.item_category ?? (requires_qc ? 'guns' : 'hardware');
+
+    // Per-pallet gun lot. A build slip gives the true count (capped at MAX);
+    // a packing slip carries only an order total, so for gun pallets with no
+    // per-pallet count provided we default to the full pallet capacity (MAX),
+    // to be verified/adjusted when the build slip is imported or during QC.
+    // Hardware pallets never carry a gun lot.
+    let guns_in_pallet: number | null = clampGunsInPallet(body.guns_in_pallet);
+    if (requires_qc && guns_in_pallet == null) guns_in_pallet = MAX_GUNS_PER_PALLET;
+    if (!requires_qc) guns_in_pallet = null;
+
     const shared = {
       sales_order: body.sales_order ?? null,
       customer: body.customer ?? null,
       operator: body.operator ?? null,
       destination: body.destination ?? null,
       load_type: body.load_type ?? 'loaded',
-      guns_in_pallet: body.guns_in_pallet != null && body.guns_in_pallet !== ''
-        ? Number(body.guns_in_pallet) : null,
+      guns_in_pallet,
+      requires_qc,
+      item_category,
       updated_by: body.updated_by ?? null,
     };
 
@@ -1428,11 +1486,15 @@ apiRoutes.get("/qc-pallets", async (c) => {
   }
 });
 
-// QC-passed pallets — used by the driver module to populate load line items.
+// Pallets ready to load — used by the driver module to populate load line items.
+// Includes QC-passed gun pallets AND hardware / spare-parts pallets (which skip
+// QC entirely, so they are ready as soon as they exist).
 apiRoutes.get("/qc-pallets/passed", async (c) => {
   try {
     const { data, error } = await supabase
-      .from('qc_pallets').select('*').eq('status', 'passed').order('created_at', { ascending: false });
+      .from('qc_pallets').select('*')
+      .or('status.eq.passed,requires_qc.eq.false')
+      .order('created_at', { ascending: false });
     if (error) return c.json({ error: error.message }, 500);
     return c.json(data || []);
   } catch (error) {
@@ -1543,11 +1605,14 @@ apiRoutes.post("/qc-pallets/:id/guns", async (c) => {
     const body = await c.req.json();
     // Sample size = number of gun records to create. Accept sample_size or
     // (back-compat) guns_total from the body.
-    const count = Math.max(0, Math.min(1000, Number(body.sample_size ?? body.guns_total) || 0));
+    let count = Math.max(0, Math.min(1000, Number(body.sample_size ?? body.guns_total) || 0));
     const lotRaw = body.guns_in_pallet;
+    // A pallet holds at most MAX_GUNS_PER_PALLET guns; clamp the lot accordingly.
     const lot = lotRaw === undefined || lotRaw === null || lotRaw === ''
       ? undefined
-      : Math.max(0, Math.min(100000, Number(lotRaw) || 0));
+      : (clampGunsInPallet(lotRaw) ?? 0);
+    // Never sample more guns than the pallet actually holds.
+    if (lot !== undefined && lot > 0) count = Math.min(count, lot);
     // Wipe existing guns (checks cascade) then re-create.
     await supabase.from('qc_guns').delete().eq('pallet_row_id', id);
     const created: any[] = [];
