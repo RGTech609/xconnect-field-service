@@ -35,7 +35,7 @@ export default function QcPallets() {
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState<any>(null);   // parsed slip + editable header
   const [chosenIds, setChosenIds] = useState<Record<string, boolean>>({});
-  const [slipFile, setSlipFile] = useState<File | null>(null); // original PDF, saved to each created pallet
+  const [slipFile, setSlipFile] = useState<File | null>(null); // pallet build slip PDF, saved to each created pallet
 
   const loadData = async () => {
     try {
@@ -150,21 +150,22 @@ export default function QcPallets() {
       const skipped = res?.skipped?.length ?? 0;
       toast.success(`Created ${made} pallet(s)${skipped ? `, skipped ${skipped} existing` : ''}`);
 
-      // Attach the original imported slip PDF to each newly created pallet so the
-      // inspector can reference the exact NetSuite document it came from.
+      // Attach the imported pallet build slip PDF to each newly created pallet so
+      // the inspector can reference the exact NetSuite build slip it came from.
+      // (The order packing slip lives on the driver load, not the pallet.)
       const createdPallets: any[] = Array.isArray(res?.created) ? res.created : [];
       if (slipFile && createdPallets.length) {
         let saved = 0;
         for (const p of createdPallets) {
           if (!p?.row_id) continue;
           try {
-            await qcPalletFileApi.upload(p.row_id, slipFile, 'slip_pdf', accessToken || undefined);
+            await qcPalletFileApi.upload(p.row_id, slipFile, 'build_slip_pdf', accessToken || undefined);
             saved++;
           } catch (err) {
             console.error('Failed to attach slip PDF to pallet', p.row_id, err);
           }
         }
-        if (saved) toast.success(`Saved slip PDF to ${saved} pallet(s)`);
+        if (saved) toast.success(`Saved build slip PDF to ${saved} pallet(s)`);
       }
 
       setSlipOpen(false);
