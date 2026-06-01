@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth-context';
-import { driverLoadApi, qcPalletApi } from '../lib/api';
+import { driverLoadApi, qcPalletApi, qcPalletFileApi } from '../lib/api';
 import { XC_BASES } from '../lib/xcLocations';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
 import ImageUpload, { ImageRecord } from '../components/ImageUpload';
@@ -16,7 +16,7 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
-import { ArrowLeft, Plus, Save, Trash2, Truck, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Trash2, Truck, AlertTriangle, CheckCircle2, FileText, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 
 const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-64775d98`;
@@ -52,6 +52,9 @@ export default function DriverLoadDetail() {
   const [items, setItems] = useState<Item[]>([]);
   const [images, setImages] = useState<ImageRecord[]>([]);
   const [passedPallets, setPassedPallets] = useState<any[]>([]);
+  // Per-pallet documents rolled up from each linked QC pallet (build slip PDF + QC photos),
+  // keyed by source_pallet_row_id, so the driver sees all docs on the load.
+  const [palletDocs, setPalletDocs] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -108,6 +111,34 @@ export default function DriverLoadDetail() {
       } catch { /* non-fatal */ }
     })();
   }, [accessToken]);
+
+  // Roll up documents from each linked QC pallet so the driver can view the
+  // pallet build slip PDF + QC photos right on the load. Refetches when the set
+  // of linked pallets changes.
+  const linkedPalletIds = useMemo(
+    () => Array.from(new Set(items.map((it) => it.source_pallet_row_id).filter(Boolean) as string[])),
+    [items]
+  );
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, any[]> = {};
+      await Promise.all(
+        linkedPalletIds.map(async (pid) => {
+          try {
+            const res = await qcPalletFileApi.list(pid, accessToken || undefined);
+            const files: any[] = Array.isArray(res?.files) ? res.files : [];
+            // Only surface build slip PDFs and QC photos (not the verification selfie).
+            next[pid] = files.filter(
+              (f) => f.field_name === 'build_slip_pdf' || f.field_name === 'slip_pdf' || f.field_name === 'qc_photo'
+            );
+          } catch { next[pid] = []; }
+        })
+      );
+      if (!cancelled) setPalletDocs(next);
+    })();
+    return () => { cancelled = true; };
+  }, [linkedPalletIds.join(','), accessToken]);
 
   const addPalletItem = (palletRowId: string) => {
     const p = passedPallets.find((x) => x.row_id === palletRowId);
@@ -456,6 +487,58 @@ export default function DriverLoadDetail() {
                 </TableBody>
               </Table>
             )}
+
+            {/* Rolled-up pallet documents: build slip PDF + QC photos for each linked pallet */}
+            {linkedPalletIds.length > 0 && (
+              <div className="mt-4 border-t pt-4 space-y-3">
+                <Label className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" /> Pallet Documents
+                </Label>
+                <p className="text-xs text-gray-500">
+                  Build slips and QC photos pulled from each QC-passed pallet on this load.
+                </p>
+                {items.filter((it) => it.source_pallet_row_id).map((it, i) => {
+                  const pid = it.source_pallet_row_id as string;
+                  const docs = palletDocs[pid] || [];
+                  const pdfs = docs.filter((d) => d.field_name === 'build_slip_pdf' || d.field_name === 'slip_pdf');
+                  const photos = docs.filter((d) => d.field_name === 'qc_photo');
+                  return (
+                    <div key={`${pid}-${i}`} className="rounded-md border border-gray-200 dark:border-gray-700 p-3">
+                      <div className="text-sm font-medium mb-2">
+                        {it.pallet_build_no ? `Pallet ${it.pallet_build_no}` : 'Pallet'}
+                        {it.description ? <span className="text-gray-500 font-normal"> — {it.description}</span> : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        {pdfs.length > 0 ? pdfs.map((f) => (
+                          <a
+                            key={f.id}
+                            href={f.signedUrl || f.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                          >
+                            <FileText className="w-4 h-4" /> Build slip PDF
+                          </a>
+                        )) : <span className="text-xs text-gray-400 inline-flex items-center gap-1"><FileText className="w-4 h-4" /> No build slip</span>}
+                      </div>
+                      {photos.length > 0 && (
+                        <div className="mt-2">
+                          <div className="text-xs text-gray-500 mb-1 inline-flex items-center gap-1"><Camera className="w-4 h-4" /> QC photos ({photos.length})</div>
+                          <div className="flex flex-wrap gap-2">
+                            {photos.map((f) => (
+                              <a key={f.id} href={f.signedUrl || f.url} target="_blank" rel="noopener noreferrer">
+                                <img src={f.signedUrl || f.url} alt="QC" className="w-16 h-16 object-cover rounded border border-gray-200 dark:border-gray-700" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="mt-4 flex items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2">
               <Label className="cursor-pointer">Hardware present</Label>
               <Switch checked={!!load.hardware_present} onCheckedChange={(v) => setField('hardware_present', v)} />

@@ -118,7 +118,9 @@ export default function QcPalletDetail() {
     try {
       const res = await qcPalletFileApi.list(id, accessToken || undefined);
       const files: any[] = Array.isArray(res?.files) ? res.files : [];
-      setSlipPdfs(files.filter((f) => f.field_name === 'slip_pdf'));
+      // Build slip PDF for this pallet. Accept legacy 'slip_pdf' rows too so
+      // previously-imported pallets still show their document.
+      setSlipPdfs(files.filter((f) => f.field_name === 'build_slip_pdf' || f.field_name === 'slip_pdf'));
       setHasVerifyPhoto(files.some((f) => f.field_name === 'build_slip_photo'));
     } catch (error) {
       console.error('Error loading pallet files:', error);
@@ -140,7 +142,7 @@ export default function QcPalletDetail() {
     }
     setUploadingSlip(true);
     try {
-      await qcPalletFileApi.upload(id, file, 'slip_pdf', accessToken || undefined);
+      await qcPalletFileApi.upload(id, file, 'build_slip_pdf', accessToken || undefined);
       toast.success('Slip PDF attached');
       await fetchFiles();
     } catch (error: any) {
@@ -381,13 +383,13 @@ export default function QcPalletDetail() {
                 <Input value={pallet.destination || ''} onChange={(e) => setPalletField('destination', e.target.value)} />
               </div>
             </div>
-            {/* Imported slip PDF (auto-saved on import; manual fallback below) */}
+            {/* Pallet Build Slip PDF (auto-saved on import; manual fallback below) */}
             <div className="border-t pt-4">
               <Label className="mb-1 flex items-center gap-2">
-                <FileText className="w-4 h-4" /> Imported slip (NetSuite PDF)
+                <FileText className="w-4 h-4" /> Pallet Build Slip (NetSuite PDF)
               </Label>
               <p className="text-xs text-gray-500 mb-2">
-                The packing / pallet build slip this pallet was created from. Verify the physical build against it.
+                The pallet build slip this pallet was created from. Verify the physical build against it. (The order's packing slip is attached to the driver load, not here.)
               </p>
               {slipPdfs.length > 0 ? (
                 <div className="space-y-1">
@@ -412,7 +414,7 @@ export default function QcPalletDetail() {
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-gray-400">No slip PDF attached yet.</p>
+                <p className="text-xs text-gray-400">No build slip PDF attached yet.</p>
               )}
               <div className="mt-2">
                 <Input
@@ -422,7 +424,7 @@ export default function QcPalletDetail() {
                   onChange={(e) => handleSlipPdfUpload(e.target.files?.[0] || null)}
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  {uploadingSlip ? 'Uploading…' : 'Attach a slip PDF manually if needed.'}
+                  {uploadingSlip ? 'Uploading…' : 'Attach a build slip PDF manually if needed.'}
                 </p>
               </div>
             </div>
