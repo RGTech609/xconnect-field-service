@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { ArrowLeft, Pencil, Save, X, Loader2, History } from 'lucide-react';
+import { ArrowLeft, Pencil, Save, X, Loader2, History, PackageCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import ImageUpload from '../components/ImageUpload';
 import { projectId, publicAnonKey } from '../../../utils/supabase/info';
@@ -34,6 +34,12 @@ const PANEL_STATUS_OPTS = [
   'Loaned',
   'Sold',
 ];
+
+// Statuses where a panel is out with a customer / off-site and can be returned
+// to a XC facility. 'Sold' is excluded (goes to a customer permanently) and
+// 'At Facility' is excluded (already home). Returning auto-sets 'At Facility'.
+const RETURNABLE_STATUSES = ['Leased', 'Loaned', 'In Repair'];
+const RETURNED_STATUS = 'At Facility';
 
 const XC_BASE_OPTS = XC_PANEL_BASES; // shared list (Denver kept for Panels inventory)
 const YES_NO_OPTS = ['Yes', 'No'];
@@ -124,6 +130,11 @@ export default function PanelDetail() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setFormState] = useState<any>({});
+
+  // Mark-Returned hero action state (optional overrides before confirming).
+  const [returning, setReturning] = useState(false);
+  const [returnDateInput, setReturnDateInput] = useState('');
+  const [returnNotesInput, setReturnNotesInput] = useState('');
 
   // Reference data (same sources as PanelForm) for FK selects.
   const [customers,   setCustomers]   = useState<any[]>([]);
@@ -262,6 +273,10 @@ export default function PanelDetail() {
       verified: panel.verified ?? 'N',
       activity: panel.activity ?? 'N',
       comments: panel.comments ?? '',
+      // Return workflow fields (editable for back-dating / corrections).
+      returned_date: panel.returned_date ?? '',
+      return_notes: panel.return_notes ?? '',
+      return_confirmed_by: panel.return_confirmed_by ?? '',
     });
     setEditing(true);
   };
@@ -283,10 +298,14 @@ export default function PanelDetail() {
     try {
       // panel_type is locked on edit, so use the stored value for conditional rules.
       const type   = panel.panel_type || '';
-      const status = form.panel_status || '';
+      // Auto-status: if a Returned Date was entered in edit mode (and there was
+      // none before), the panel has come back to a XC facility — force the
+      // status to 'At Facility' regardless of the dropdown (mirrors Mark Returned).
+      const justReturned = !!form.returned_date && !panel.returned_date;
+      const status = justReturned ? RETURNED_STATUS : (form.panel_status || '');
       const payload: Record<string, any> = {
         // panel_type intentionally NOT sent — locked after creation (PanelForm parity).
-        panel_status: form.panel_status || null,
+        panel_status: status || null,
         xc_base: form.xc_base || null,
         customer: form.customer || null,
         customer_district: form.customer_district || null,
@@ -309,6 +328,10 @@ export default function PanelDetail() {
         // Always stamp the saving user + today's date on edit (PanelForm parity).
         updated_by: user?.name || user?.email || null,
         date_updated: new Date().toLocaleDateString(),
+        // Return workflow fields.
+        returned_date: form.returned_date || null,
+        return_notes: form.return_notes || null,
+        return_confirmed_by: form.return_confirmed_by || null,
       };
       await panelApi.update(id, payload, accessToken);
       toast.success('Panel updated successfully');
@@ -318,6 +341,63 @@ export default function PanelDetail() {
       await loadHistory();
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to save panel');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Mark Returned ──────────────────────────────────────────────────────────
+  // One-tap action: panel has come back to a XC facility. Stamps the returned
+  // date (today by default, overridable), records who confirmed it + optional
+  // notes, and auto-flips panel_status to 'At Facility'. Only offered for panels
+  // that are out in the field (Leased / Loaned / In Repair).
+  const todayISO = () => new Date().toISOString().slice(0, 10);
+  const handleMarkReturned = async () => {
+    if (!id || !accessToken || !panel) return;
+    setSaving(true);
+    try {
+      const who = user?.name || user?.email || null;
+      const payload: Record<string, any> = {
+        // Carry forward all existing values so the targeted update doesn't blank
+        // unrelated columns (the edge PUT writes the whole object).
+        panel_type: panel.panel_type ?? null,
+        plus_panel: panel.plus_panel ?? null,
+        serial_number: panel.serial_number ?? null,
+        shootingfw: panel.shootingfw ?? null,
+        wl_controlfw: panel.wl_controlfw ?? null,
+        loggingfw: panel.loggingfw ?? null,
+        gui_version: panel.gui_version ?? null,
+        surfacefw: panel.surfacefw ?? null,
+        received_date: panel.received_date ?? null,
+        xc_base: panel.xc_base ?? null,
+        unit_number: panel.unit_number ?? null,
+        'so#': panel['so#'] ?? null,
+        tracking_info: panel.tracking_info ?? null,
+        comments: panel.comments ?? null,
+        verified: panel.verified ?? 'N',
+        rma: panel.rma ?? null,
+        is_spare: panel.is_spare ?? null,
+        customer_district: panel.customer_district ?? null,
+        operating_company: panel.operating_company ?? null,
+        customer: panel.customer ?? null,
+        activity: panel.activity ?? 'N',
+        // Return workflow + auto-status.
+        panel_status: RETURNED_STATUS,
+        returned_date: returnDateInput || todayISO(),
+        return_notes: returnNotesInput || null,
+        return_confirmed_by: who,
+        updated_by: who,
+        date_updated: new Date().toLocaleDateString(),
+      };
+      await panelApi.update(id, payload, accessToken);
+      toast.success(`Panel returned — status set to ${RETURNED_STATUS}`);
+      setReturning(false);
+      setReturnDateInput('');
+      setReturnNotesInput('');
+      await loadPanel();
+      await loadHistory();
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to mark panel returned');
     } finally {
       setSaving(false);
     }
@@ -675,6 +755,48 @@ export default function PanelDetail() {
                       placeholder="Select"
                     />
                   </Field>
+
+                  {/* Return fields — editable for back-dating / corrections.
+                      Setting a Returned Date here auto-flips status to
+                      'At Facility' on save (see handleSave justReturned). */}
+                  <Field
+                    label="Returned Date"
+                    value={
+                      panel.returned_date
+                        ? new Date(panel.returned_date).toLocaleDateString()
+                        : '—'
+                    }
+                    editing={editing}
+                  >
+                    <Input
+                      type="date"
+                      value={form.returned_date}
+                      onChange={(e) => setField('returned_date', e.target.value)}
+                    />
+                  </Field>
+
+                  <Field
+                    label="Return Confirmed By"
+                    value={panel.return_confirmed_by}
+                    editing={editing}
+                  >
+                    <Input
+                      value={form.return_confirmed_by}
+                      onChange={(e) => setField('return_confirmed_by', e.target.value)}
+                    />
+                  </Field>
+
+                  <Field
+                    label="Return Notes"
+                    value={panel.return_notes}
+                    editing={editing}
+                  >
+                    <Textarea
+                      rows={2}
+                      value={form.return_notes}
+                      onChange={(e) => setField('return_notes', e.target.value)}
+                    />
+                  </Field>
                 </div>
               </CardContent>
             </Card>
@@ -787,6 +909,93 @@ export default function PanelDetail() {
 
           {/* ── Right sidebar ── */}
           <div className="space-y-6">
+
+            {/* Mark Returned — hero action. Only for panels currently out in the
+                field (Leased / Loaned / In Repair). Returning auto-sets the
+                status to 'At Facility'. Sold panels never return. */}
+            {!editing && RETURNABLE_STATUSES.includes(panel.panel_status) && (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900 p-5 shadow-sm">
+                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                  <PackageCheck className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">
+                    Panel Return
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-blue-900/80 dark:text-blue-200/80">
+                  Currently <span className="font-semibold">{panel.panel_status}</span>.
+                  Mark it returned when it&rsquo;s back at a XC facility &mdash;
+                  status will switch to <span className="font-semibold">{RETURNED_STATUS}</span>.
+                </p>
+
+                <Button
+                  className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={handleMarkReturned}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <PackageCheck className="w-4 h-4 mr-2" />
+                  )}
+                  Mark Returned
+                </Button>
+
+                {/* Optional overrides (back-date / add notes) — collapsed by default. */}
+                <details className="mt-3 group">
+                  <summary className="cursor-pointer text-xs text-blue-700 dark:text-blue-300 hover:underline list-none">
+                    Add return date / notes
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-blue-900/70 dark:text-blue-200/70">
+                        Returned Date (defaults to today)
+                      </Label>
+                      <Input
+                        type="date"
+                        value={returnDateInput}
+                        onChange={(e) => setReturnDateInput(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-blue-900/70 dark:text-blue-200/70">
+                        Return Notes
+                      </Label>
+                      <Textarea
+                        rows={2}
+                        value={returnNotesInput}
+                        onChange={(e) => setReturnNotesInput(e.target.value)}
+                        placeholder="Condition, who dropped it off, etc."
+                      />
+                    </div>
+                  </div>
+                </details>
+              </div>
+            )}
+
+            {/* Return details — shown once a panel has been returned. */}
+            {!editing && panel.returned_date && (
+              <Card className="rounded-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PackageCheck className="w-4 h-4 text-blue-600" />
+                    Return Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Field
+                    label="Returned Date"
+                    value={
+                      panel.returned_date
+                        ? new Date(panel.returned_date).toLocaleDateString()
+                        : '—'
+                    }
+                  />
+                  <Field label="Confirmed By" value={panel.return_confirmed_by} />
+                  <Field label="Return Notes" value={panel.return_notes} />
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="rounded-xl">
               <CardHeader>
                 <CardTitle>Metadata</CardTitle>
