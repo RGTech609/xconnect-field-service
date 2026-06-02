@@ -252,6 +252,12 @@ export default function IncidentForm({
   const [vendorCaused, setVendorCaused] = useState('');
   const [failureType, setFailureType] = useState(''); // stores the lists row_id
 
+  // Director Review (admin-only). Controlled so the admin can set/clear the
+  // review sign-off inline; SQM sees a read-only badge. The actual reviewer
+  // name + timestamp are stamped into the payload on save (see below).
+  const isAdmin = currentUser?.role === 'admin';
+  const [reviewed, setReviewed] = useState<boolean>(!!incident?.reviewed_at);
+
   // Failure types (by label) that REQUIRE a Failed Component to be selected.
   const FAILURE_TYPES_REQUIRING_COMPONENT = [
     'Low Order',
@@ -572,6 +578,23 @@ export default function IncidentForm({
       report_version: fd.get('report_version') || null,
       notes: fd.get('notes') || null,
     };
+
+    // Director Review sign-off (admin-only). SQM users can't change this, so we
+    // only touch reviewed_by/reviewed_at when an admin actually flipped the
+    // control — otherwise we leave the columns untouched.
+    //  - newly set      → stamp the admin + now()
+    //  - cleared        → explicit null on both (supabase-js keeps explicit null)
+    //  - unchanged      → omit (don't overwrite an existing reviewer/timestamp)
+    if (isAdmin) {
+      const wasReviewed = !!incident?.reviewed_at;
+      if (reviewed && !wasReviewed) {
+        payload.reviewed_by = currentUser?.name || currentUser?.email || 'Director';
+        payload.reviewed_at = new Date().toISOString();
+      } else if (!reviewed && wasReviewed) {
+        payload.reviewed_by = null;
+        payload.reviewed_at = null;
+      }
+    }
     // Note: the `incidents` table has no `updated_by` column — edit attribution
     // is captured via the `incident_updates` timeline, not a column here.
 
@@ -1210,6 +1233,46 @@ export default function IncidentForm({
                 ))}
               </Sel>
             </F>
+
+            {/* Director Review sign-off. Admin can set/clear inline; SQM sees a
+                read-only status. Spans both columns. */}
+            <div className="md:col-span-2">
+              <Label className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 block">
+                Director Review
+              </Label>
+              {isAdmin ? (
+                <div className="flex items-center gap-3 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={reviewed}
+                      onChange={(e) => setReviewed(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {reviewed ? 'Reviewed' : 'Not reviewed'}
+                    </span>
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {incident?.reviewed_at
+                      ? `Reviewed by ${incident.reviewed_by || 'Director'} on ${new Date(incident.reviewed_at).toLocaleDateString()}`
+                      : reviewed
+                        ? `Will be stamped to ${currentUser?.name || currentUser?.email || 'Director'} on save`
+                        : 'Toggle on to sign off as reviewed'}
+                  </span>
+                </div>
+              ) : (
+                <div className="rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm">
+                  {incident?.reviewed_at ? (
+                    <span className="inline-flex items-center gap-1.5 text-emerald-600 font-medium">
+                      ✓ Reviewed by {incident.reviewed_by || 'Director'} on {new Date(incident.reviewed_at).toLocaleDateString()}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">Not yet reviewed — director sign-off required.</span>
+                  )}
+                </div>
+              )}
+            </div>
           </SectionCard>
 
           {/* 9. Evidence Images — uses the same Edge-Function-backed uploader as
