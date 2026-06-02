@@ -33,9 +33,15 @@ import {
   normalizeStatus,
   canMarkReportSent,
   CLOSED_STATUS,
+  FINAL_REVIEW_STATUS,
+  ACTION_STATUS_COMPLETE,
   normalizeActionStatus,
   ACTION_STATUS_LABELS,
+  getReviewSteps,
+  validateForStatus,
 } from '../lib/incidentWorkflow';
+import ReviewProgress from '../components/ReviewProgress';
+import { useTheme } from '../lib/theme-context';
 import {
   resolveFailedComponentLabel,
   resolveFailureTypeLabel,
@@ -157,6 +163,7 @@ export default function IncidentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { accessToken, user } = useAuth();
+  const { isDark } = useTheme();
 
   const [incident,    setIncident]    = useState<any>(null);
   const [lists,       setLists]       = useState<any[]>([]);
@@ -194,6 +201,9 @@ export default function IncidentDetail() {
   // Image picker shown before each PDF generation
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerVersion, setPickerVersion] = useState<'preliminary' | 'final' | null>(null);
+
+  // Director-review checklist busy flag (shared across its action buttons).
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   useEffect(() => {
     if (id && accessToken) loadAll();
@@ -586,6 +596,63 @@ export default function IncidentDetail() {
     toast.success(newValue ? 'Marked as sent' : 'Marked as not sent');
   };
 
+  // ── Director review checklist actions ──────────────────────────────────────
+  // Mirrors the Dashboard review queue so the Detail page is a full, equivalent
+  // workflow surface. Admin-only, with the same hard field gate before sign-off.
+  const handleMarkReviewed = async () => {
+    if (!incident) return;
+    if (user?.role !== 'admin') {
+      toast.error('Only the director/admin can mark an incident reviewed.');
+      return;
+    }
+    const missing = validateForStatus(incident, FINAL_REVIEW_STATUS);
+    if (missing.length) {
+      toast.error(`Cannot mark reviewed — complete these first: ${missing.join(', ')}.`, { duration: 6000 });
+      return;
+    }
+    const reviewer = user?.name || user?.email || 'Director';
+    const reviewedAt = new Date().toISOString();
+    setReviewBusy(true);
+    const { error } = await supabase
+      .from('incidents')
+      .update({ reviewed_by: reviewer, reviewed_at: reviewedAt })
+      .eq('row_id', incident.row_id);
+    setReviewBusy(false);
+    if (error) { toast.error(error.message || 'Failed to mark reviewed'); return; }
+    setIncident((prev: any) => ({ ...prev, reviewed_by: reviewer, reviewed_at: reviewedAt }));
+    // Timeline log — best-effort, don't block on failure.
+    supabase.from('incident_updates').insert({
+      event_id: incident.event_id ?? null,
+      incident_id: incident.row_id ?? null,
+      update_type: 'review',
+      note: `Reviewed by ${reviewer}`,
+      created_by: reviewer,
+    }).then(({ error: e }) => { if (e) console.warn('timeline log failed', e.message); });
+    toast.success('Marked as reviewed');
+  };
+
+  const handleCloseFromChecklist = async () => {
+    if (!incident) return;
+    if (user?.role !== 'admin') {
+      toast.error('Only the director/admin can close an incident.');
+      return;
+    }
+    const missing = validateForStatus(incident, CLOSED_STATUS);
+    if (missing.length) {
+      toast.error(`Cannot close — missing: ${missing.join(', ')}.`, { duration: 6000 });
+      return;
+    }
+    setReviewBusy(true);
+    const { error } = await supabase
+      .from('incidents')
+      .update({ incident_status: CLOSED_STATUS, action_status: ACTION_STATUS_COMPLETE })
+      .eq('row_id', incident.row_id);
+    setReviewBusy(false);
+    if (error) { toast.error(error.message || 'Failed to close incident'); return; }
+    setIncident((prev: any) => ({ ...prev, incident_status: CLOSED_STATUS, action_status: ACTION_STATUS_COMPLETE }));
+    toast.success('Incident closed.');
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   if (loading) {
     return <div className="p-8"><div className="max-w-5xl mx-auto text-center py-12">Loading...</div></div>;
@@ -749,6 +816,26 @@ export default function IncidentDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* ── Director Review checklist ──
+            Full review workflow surface, identical to the Dashboard review
+            queue. Hidden once every step is done so it doesn't clutter a
+            fully-closed incident. */}
+        {(() => {
+          const reviewSteps = getReviewSteps(incident, user?.role as any);
+          if (reviewSteps.every(s => s.done)) return null;
+          return (
+            <ReviewProgress
+              steps={reviewSteps}
+              isDark={isDark}
+              busy={reviewBusy}
+              onMarkReviewed={handleMarkReviewed}
+              onGenerateReport={() => openPdfPicker('final')}
+              onSendToCustomer={handleOpenSendDialog}
+              onCloseIncident={handleCloseFromChecklist}
+            />
+          );
+        })()}
 
         <div className="grid gap-6">
 
