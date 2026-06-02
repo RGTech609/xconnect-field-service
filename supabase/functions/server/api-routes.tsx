@@ -2949,7 +2949,7 @@ async function sendIncidentEmail(
   throw new Error(`Unknown MAIL_PROVIDER: ${provider}`);
 }
 
-apiRoutes.post('/make-server-64775d98/send-incident-report', async (c) => {
+apiRoutes.post('/send-incident-report', async (c) => {
   let body: any;
   try {
     body = await c.req.json();
