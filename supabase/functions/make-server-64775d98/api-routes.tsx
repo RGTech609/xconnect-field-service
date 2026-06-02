@@ -1064,7 +1064,13 @@ apiRoutes.put("/panels/:id", async (c) => {
         operating_company: body.operating_company,
         customer: body.customer,
         updated_by: body.updated_by,
-        activity: body.activity
+        activity: body.activity,
+        // Return workflow: when a leased/loaned/in-repair panel comes back to a
+        // XC facility. returned_date set => panel_status auto-flipped to
+        // 'At Facility' on the client (see PanelDetail handleMarkReturned).
+        returned_date: body.returned_date,
+        return_notes: body.return_notes,
+        return_confirmed_by: body.return_confirmed_by
       })
       .eq('row_id', id)
       .select()
