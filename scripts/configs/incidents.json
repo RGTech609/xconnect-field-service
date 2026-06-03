@@ -45,6 +45,9 @@
   "enum_normalize": {
     "xc_caused": {
       "Under Investigation": "Pending Investigation"
+    },
+    "incident_status": {
+      "Open": "Investigating"
     }
   }
 }
