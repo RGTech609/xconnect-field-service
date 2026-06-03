@@ -42,6 +42,10 @@ import {
   pickReport,
   type IncidentReportRow,
 } from '../lib/incidentReportStorage';
+import {
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
 // ── Time filter helpers ───────────────────────────────────────────────────────
 function getDateRange(tf: string | null): { start: Date | null; end: Date | null } {
@@ -148,6 +152,10 @@ export default function IncidentsNew() {
   const [loading,      setLoading]      = useState(true);
   const [apiListMap,   setApiListMap]   = useState<Record<string, any>>({});
   const [apiVendorMap, setApiVendorMap] = useState<Record<string, string>>({});
+
+  // ── Tab + drill state ────────────────────────────────────────────────────
+  const [tab,   setTab]   = useState<'dashboard' | 'list'>('dashboard');
+  const [drill, setDrill] = useState<{ dim: string; value: string } | null>(null);
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const [filterCustomer, setFilterCustomer] = useState('');
@@ -415,6 +423,57 @@ export default function IncidentsNew() {
 
   const filtersActive = filterCustomer || filterDistrict || filterTime !== 'all_time' || searchTerm;
 
+  // ── Dashboard metrics (computed over ALL enrichedIncidents) ───────────────
+  const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16'];
+
+  const statusCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    enrichedIncidents.forEach(inc => {
+      const s = normalizeStatus(inc.incident_status) || 'Unknown';
+      map[s] = (map[s] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [enrichedIncidents]);
+
+  const severityCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    enrichedIncidents.forEach(inc => {
+      const s = inc.incident_severity || 'Unknown';
+      map[s] = (map[s] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [enrichedIncidents]);
+
+  const xcCausedCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    enrichedIncidents.forEach(inc => {
+      const s = inc.xc_caused || 'Unknown';
+      map[s] = (map[s] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [enrichedIncidents]);
+
+  const totalIncidents   = enrichedIncidents.length;
+  const openCount        = useMemo(() => enrichedIncidents.filter(i => normalizeStatus(i.incident_status) !== 'Closed').length, [enrichedIncidents]);
+  const closedCount      = useMemo(() => enrichedIncidents.filter(i => normalizeStatus(i.incident_status) === 'Closed').length, [enrichedIncidents]);
+  const criticalCount    = useMemo(() => enrichedIncidents.filter(i => (i.incident_severity || '').toLowerCase() === 'critical').length, [enrichedIncidents]);
+  const xcCausedYesCount = useMemo(() => enrichedIncidents.filter(i => (i.xc_caused || '').toLowerCase() === 'yes').length, [enrichedIncidents]);
+
+  // ── Drill rows ────────────────────────────────────────────────────────────
+  const drillRows = useMemo(() => {
+    if (!drill) return [];
+    return enrichedIncidents.filter(inc => {
+      if (drill.dim === 'status')   return normalizeStatus(inc.incident_status) === drill.value;
+      if (drill.dim === 'severity') return (inc.incident_severity || '') === drill.value;
+      if (drill.dim === 'xc_caused') return (inc.xc_caused || '') === drill.value;
+      if (drill.dim === 'open_closed') {
+        const isClosed = normalizeStatus(inc.incident_status) === 'Closed';
+        return drill.value === 'Closed' ? isClosed : !isClosed;
+      }
+      return false;
+    });
+  }, [drill, enrichedIncidents]);
+
   // ── CRUD ──────────────────────────────────────────────────────────────────
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this incident?')) return;
@@ -584,6 +643,9 @@ export default function IncidentsNew() {
 
   if (loading) return <div className="p-8 text-center">Loading Incident Data...</div>;
 
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  const tooltipStyle = isDark ? { backgroundColor: '#1e293b', border: '1px solid #334155', color: '#f1f5f9' } : undefined;
+
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
@@ -601,6 +663,292 @@ export default function IncidentsNew() {
           </Button>
         </div>
 
+        {/* ── Dashboard / List tab toggle ── */}
+        <div className="flex mb-6">
+          <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setTab('dashboard')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                tab === 'dashboard'
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              Dashboard
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('list')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                tab === 'list'
+                  ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              List
+            </button>
+          </div>
+        </div>
+
+        {/* ── DASHBOARD TAB ── */}
+        {tab === 'dashboard' && (
+          <div className="space-y-6">
+
+            {/* Metric cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Total */}
+              <button
+                type="button"
+                onClick={() => setDrill(null)}
+                className="text-left rounded-lg border p-4 transition-all bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-blue-300"
+              >
+                <div className="text-2xl font-bold">{totalIncidents}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Total Incidents</div>
+              </button>
+
+              {/* Open */}
+              <button
+                type="button"
+                onClick={() => setDrill(prev => prev?.dim === 'open_closed' && prev.value === 'Open' ? null : { dim: 'open_closed', value: 'Open' })}
+                className={`text-left rounded-lg border p-4 transition-all bg-white dark:bg-gray-800 ${
+                  drill?.dim === 'open_closed' && drill.value === 'Open'
+                    ? 'ring-2 ring-blue-400 border-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                }`}
+              >
+                <div className="text-2xl font-bold text-amber-600">{openCount}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Open</div>
+              </button>
+
+              {/* Closed */}
+              <button
+                type="button"
+                onClick={() => setDrill(prev => prev?.dim === 'open_closed' && prev.value === 'Closed' ? null : { dim: 'open_closed', value: 'Closed' })}
+                className={`text-left rounded-lg border p-4 transition-all bg-white dark:bg-gray-800 ${
+                  drill?.dim === 'open_closed' && drill.value === 'Closed'
+                    ? 'ring-2 ring-blue-400 border-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                }`}
+              >
+                <div className="text-2xl font-bold text-emerald-600">{closedCount}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Closed</div>
+              </button>
+
+              {/* Critical */}
+              <button
+                type="button"
+                onClick={() => setDrill(prev => prev?.dim === 'severity' && prev.value === 'Critical' ? null : { dim: 'severity', value: 'Critical' })}
+                className={`text-left rounded-lg border p-4 transition-all bg-white dark:bg-gray-800 ${
+                  drill?.dim === 'severity' && drill.value === 'Critical'
+                    ? 'ring-2 ring-blue-400 border-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                }`}
+              >
+                <div className="text-2xl font-bold text-red-600">{criticalCount}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Critical Severity</div>
+              </button>
+
+              {/* XC Caused */}
+              <button
+                type="button"
+                onClick={() => setDrill(prev => prev?.dim === 'xc_caused' && prev.value === 'Yes' ? null : { dim: 'xc_caused', value: 'Yes' })}
+                className={`text-left rounded-lg border p-4 transition-all bg-white dark:bg-gray-800 ${
+                  drill?.dim === 'xc_caused' && drill.value === 'Yes'
+                    ? 'ring-2 ring-blue-400 border-blue-400'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                }`}
+              >
+                <div className="text-2xl font-bold text-purple-600">{xcCausedYesCount}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">XC Caused (Yes)</div>
+              </button>
+            </div>
+
+            {/* Charts row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Chart 1: Pie by status */}
+              <Card className="p-4">
+                <CardHeader className="p-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-200">Incidents by Status</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={statusCounts}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                        onClick={(entry: any) => {
+                          if (!entry) return;
+                          setDrill(prev => prev?.dim === 'status' && prev.value === entry.name ? null : { dim: 'status', value: entry.name });
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {statusCounts.map((entry, idx) => (
+                          <Cell
+                            key={entry.name}
+                            fill={drill?.dim === 'status' && drill.value === entry.name ? '#1d4ed8' : COLORS[idx % COLORS.length]}
+                            stroke={drill?.dim === 'status' && drill.value === entry.name ? '#1d4ed8' : 'none'}
+                            strokeWidth={2}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Chart 2: Bar by severity */}
+              <Card className="p-4">
+                <CardHeader className="p-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-200">Incidents by Severity</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={severityCounts} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar
+                        dataKey="value"
+                        radius={[4, 4, 0, 0]}
+                        onClick={(entry: any) => {
+                          if (!entry) return;
+                          setDrill(prev => prev?.dim === 'severity' && prev.value === entry.name ? null : { dim: 'severity', value: entry.name });
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {severityCounts.map((entry, idx) => (
+                          <Cell
+                            key={entry.name}
+                            fill={drill?.dim === 'severity' && drill.value === entry.name ? '#1d4ed8' : COLORS[idx % COLORS.length]}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Chart 3: Bar by XC Caused */}
+              <Card className="p-4 md:col-span-2">
+                <CardHeader className="p-0 pb-3">
+                  <CardTitle className="text-sm font-semibold text-gray-700 dark:text-gray-200">Incidents by XC Caused</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={xcCausedCounts} layout="vertical" margin={{ top: 4, right: 24, left: 24, bottom: 4 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#374151' : '#e5e7eb'} />
+                      <XAxis type="number" allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={100} />
+                      <Tooltip contentStyle={tooltipStyle} />
+                      <Bar
+                        dataKey="value"
+                        radius={[0, 4, 4, 0]}
+                        onClick={(entry: any) => {
+                          if (!entry) return;
+                          setDrill(prev => prev?.dim === 'xc_caused' && prev.value === entry.name ? null : { dim: 'xc_caused', value: entry.name });
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {xcCausedCounts.map((entry, idx) => (
+                          <Cell
+                            key={entry.name}
+                            fill={drill?.dim === 'xc_caused' && drill.value === entry.name ? '#1d4ed8' : COLORS[idx % COLORS.length]}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Drill-down list */}
+            <Card className="border shadow-sm rounded-xl overflow-hidden">
+              <CardHeader className="border-b bg-white dark:bg-gray-800 pb-3 pt-4 px-6">
+                <CardTitle className="flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-200">
+                  {drill ? (
+                    <span>
+                      Showing {drillRows.length} incident{drillRows.length !== 1 ? 's' : ''}
+                      {' '}·{' '}
+                      <span className="text-blue-600">{drill.value}</span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 font-normal italic">Select a card or chart segment to see matching incidents</span>
+                  )}
+                  {drill && (
+                    <button
+                      type="button"
+                      onClick={() => setDrill(null)}
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" /> Clear
+                    </button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              {drill && drillRows.length > 0 && (
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-gray-50/50">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="font-semibold text-gray-700 dark:text-gray-200 w-[90px]">Event ID</TableHead>
+                          <TableHead className="font-semibold text-gray-700 dark:text-gray-200 w-[100px]">Date</TableHead>
+                          <TableHead className="font-semibold text-gray-700 dark:text-gray-200">Customer</TableHead>
+                          <TableHead className="font-semibold text-gray-700 dark:text-gray-200">Severity</TableHead>
+                          <TableHead className="font-semibold text-gray-700 dark:text-gray-200">Status</TableHead>
+                          <TableHead className="font-semibold text-gray-700 dark:text-gray-200">XC Caused</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {drillRows.map(inc => (
+                          <TableRow key={inc.row_id || inc.event_id} className="hover:bg-gray-50 transition-colors">
+                            <TableCell className="font-medium text-blue-600">
+                              <Link to={`/incidents/${inc.row_id}`} className="flex items-center gap-1 hover:underline">
+                                {inc.event_id}
+                                <ExternalLink className="w-3 h-3" />
+                              </Link>
+                            </TableCell>
+                            <TableCell className="text-gray-600 dark:text-gray-300 text-sm">
+                              {inc.date_incident ? format(parseISO(inc.date_incident), 'M/d/yyyy') : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">{inc.customerName || '-'}</div>
+                            </TableCell>
+                            <TableCell><SeverityBadge severity={inc.incident_severity} /></TableCell>
+                            <TableCell><StatusBadge status={inc.incident_status} /></TableCell>
+                            <TableCell><XcCausedBadge caused={inc.xc_caused} /></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              )}
+              {drill && drillRows.length === 0 && (
+                <CardContent className="py-10 text-center text-gray-400 text-sm">
+                  No incidents match the selected filter.
+                </CardContent>
+              )}
+            </Card>
+
+          </div>
+        )}
+
+        {/* ── LIST TAB ── */}
+        {tab === 'list' && (
+          <>
         {/* Report filter banner */}
         {fromReport && (
           <div className="mb-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
@@ -801,6 +1149,9 @@ export default function IncidentsNew() {
             )}
           </CardContent>
         </Card>
+
+          </>
+        )}
 
         {/* ── Form Dialog ── */}
         <IncidentForm
