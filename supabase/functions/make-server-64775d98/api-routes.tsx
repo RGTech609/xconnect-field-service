@@ -3295,6 +3295,15 @@ apiRoutes.post('/lists', requireAdmin, async (c) => {
     );
     if (dup) return c.json({ error: `"${value}" already exists in this list` }, 409);
 
+    // For enum-backed categories, register the new label on the Postgres enum
+    // type first (ALTER TYPE ... ADD VALUE IF NOT EXISTS) via the SECURITY
+    // DEFINER RPC. No-op for text/non-enum categories.
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc('manage_list_option', {
+      p_action: 'add', p_category: category, p_new: value,
+    });
+    if (rpcErr) return c.json({ error: rpcErr.message }, 500);
+    if (rpcRes && rpcRes.ok === false) return c.json({ error: rpcRes.error || 'add failed' }, 400);
+
     const rowId = 'pl_' + crypto.randomUUID().replace(/-/g, '');
     const { data, error } = await supabase
       .from('lists').insert({ row_id: rowId, [category]: value }).select().single();
@@ -3327,22 +3336,22 @@ apiRoutes.put('/lists/rename', requireAdmin, async (c) => {
     );
     if (collision) return c.json({ error: `"${newValue}" already exists in this list` }, 409);
 
-    // 1) update the lists row(s) holding the old value
+    // 1) For enum-backed categories, rename the enum label itself
+    // (ALTER TYPE ... RENAME VALUE). This atomically updates EVERY consuming
+    // record in one global operation — no per-row cascade needed. No-op for
+    // text/non-enum categories.
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc('manage_list_option', {
+      p_action: 'rename', p_category: category, p_old: oldValue, p_new: newValue,
+    });
+    if (rpcErr) return c.json({ error: rpcErr.message }, 500);
+    if (rpcRes && rpcRes.ok === false) return c.json({ error: rpcRes.error || 'rename failed' }, 400);
+
+    // 2) update the lists row(s) holding the old value so the dropdown reflects it
     const { error: listErr } = await supabase
       .from('lists').update({ [category]: newValue }).eq(category, oldValue);
     if (listErr) return c.json({ error: listErr.message }, 500);
 
-    // 2) cascade to consuming records (auto-update existing data)
-    let updatedRecords = 0;
-    const consumer = CATEGORY_CONSUMERS[category];
-    if (consumer) {
-      const { data: upd, error: cErr } = await supabase
-        .from(consumer.table).update({ [consumer.column]: newValue })
-        .eq(consumer.column, oldValue).select('row_id');
-      if (cErr) return c.json({ error: `lists renamed but record cascade failed: ${cErr.message}` }, 500);
-      updatedRecords = (upd || []).length;
-    }
-    return c.json({ ok: true, updatedRecords });
+    return c.json({ ok: true });
   } catch (error) {
     return c.json({ error: String(error) }, 500);
   }
