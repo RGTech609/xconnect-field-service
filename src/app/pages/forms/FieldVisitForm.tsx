@@ -79,6 +79,10 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
   // surface_tester). Marking a panel here stamps it verified='Y' + last-seen
   // on save (handled server-side).
   const [panelsSeen,    setPanelsSeen]    = useState<string[]>([]);
+  // Type-ahead search box for the Panels Seen picker, plus a collapsible
+  // "browse all by type" fallback for users who prefer to scroll the full list.
+  const [panelSearch,   setPanelSearch]   = useState('');
+  const [showAllPanels, setShowAllPanels] = useState(false);
 
   // Fetch next available Visit ID — fetch ALL field_visit_ids and find the true
   // numeric max. We can't .order() because Postgres sorts field_visit_id as
@@ -134,7 +138,7 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
   // legacy visits saved before this field existed, fall back to the 3 old
   // single dropdown columns so nothing is lost on edit.
   useEffect(() => {
-    if (!open) { setPanelsSeen([]); return; }
+    if (!open) { setPanelsSeen([]); setPanelSearch(''); setShowAllPanels(false); return; }
     if (visit) {
       const arr: string[] = Array.isArray(visit.panels_seen) ? visit.panels_seen.filter(Boolean) : [];
       if (arr.length > 0) {
@@ -154,6 +158,12 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
     setPanelsSeen(prev =>
       prev.includes(serial) ? prev.filter(s => s !== serial) : [...prev, serial]
     );
+  };
+  const addPanelSeen = (serial: string) => {
+    setPanelsSeen(prev => (prev.includes(serial) ? prev : [...prev, serial]));
+  };
+  const removePanelSeen = (serial: string) => {
+    setPanelsSeen(prev => prev.filter(s => s !== serial));
   };
 
   // XC Rep: on edit keep the stored rep; on create auto-pull the logged-in
@@ -244,6 +254,25 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
   // Selected serials that aren't in the current panel list (e.g. legacy data).
   const knownSerials = new Set(allPanels.map(p => getSerial(p)));
   const orphanSeen = panelsSeen.filter(s => !knownSerials.has(s));
+
+  // Serial -> panel_type lookup for chip / search-result labels.
+  const typeBySerial = new Map<string, string>(
+    allPanels.map(p => [getSerial(p), p.panel_type || ''])
+  );
+
+  // Live type-ahead results: match the search text against serial OR type,
+  // hide already-selected panels, cap the list so the dropdown stays usable.
+  const searchQ = panelSearch.trim().toLowerCase();
+  const searchResults = searchQ === ''
+    ? []
+    : allPanels
+        .filter(p => {
+          const serial = getSerial(p);
+          if (panelsSeen.includes(serial)) return false;
+          const hay = `${serial} ${p.panel_type || ''}`.toLowerCase();
+          return hay.includes(searchQ);
+        })
+        .slice(0, 30);
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
@@ -411,54 +440,115 @@ export default function FieldVisitForm({ open, onClose, onSaved, visit, currentU
                 ({panelsSeen.length} selected · marks each Verified = Y)
               </span>
             </Label>
-            <div className="space-y-3 border border-gray-200 dark:border-gray-700 rounded-md p-3 max-h-72 overflow-y-auto">
-              {panelTypeGroups.length === 0 && (
-                <p className="text-sm text-gray-400">No panels available.</p>
-              )}
-              {panelTypeGroups.map(({ type, panels }) => (
-                <div key={type}>
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">{type}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {panels.map(p => {
+
+            {/* ── Selected panels: removable chips ──────────────────────────── */}
+            {panelsSeen.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {panelsSeen.map(serial => {
+                  const t = typeBySerial.get(serial);
+                  return (
+                    <span
+                      key={serial}
+                      className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full text-xs bg-blue-600 text-white"
+                    >
+                      {serial}{t ? <span className="opacity-70">· {t}</span> : null}
+                      <button
+                        type="button"
+                        onClick={() => removePanelSeen(serial)}
+                        className="ml-0.5 w-4 h-4 inline-flex items-center justify-center rounded-full hover:bg-blue-700"
+                        title={`Remove ${serial}`}
+                        aria-label={`Remove ${serial}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── Type-ahead search ─────────────────────────────────────────── */}
+            <div className="relative">
+              <Input
+                value={panelSearch}
+                onChange={e => setPanelSearch(e.target.value)}
+                placeholder="Search panels by serial # or type to add…"
+                autoComplete="off"
+              />
+              {searchQ !== '' && (
+                <div className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 shadow-lg">
+                  {searchResults.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-400">No matching panels.</div>
+                  ) : (
+                    searchResults.map(p => {
                       const serial = getSerial(p);
-                      const on = panelsSeen.includes(serial);
                       return (
                         <button
                           type="button"
                           key={serial}
-                          onClick={() => togglePanelSeen(serial)}
-                          className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                            on
-                              ? 'bg-blue-600 border-blue-600 text-white'
-                              : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-blue-400'
-                          }`}
+                          onClick={() => { addPanelSeen(serial); setPanelSearch(''); }}
+                          className="w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-blue-50 dark:hover:bg-gray-800"
                         >
-                          {on ? '✓ ' : ''}{serial}
+                          <span className="font-medium text-gray-800 dark:text-gray-100">{serial}</span>
+                          <span className="text-xs text-gray-400">{p.panel_type || ''}</span>
                         </button>
                       );
-                    })}
-                  </div>
+                    })
+                  )}
                 </div>
-              ))}
+              )}
             </div>
-            {/* Serials selected here but no longer in the panel list (e.g. legacy
-                values) are preserved so editing never silently drops them. */}
-            {orphanSeen.length > 0 && (
-              <div className="mt-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Other (not in current list)</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {orphanSeen.map(serial => (
-                    <button
-                      type="button"
-                      key={serial}
-                      onClick={() => togglePanelSeen(serial)}
-                      className="px-2.5 py-1 rounded-full text-xs border bg-blue-600 border-blue-600 text-white"
-                    >
-                      ✓ {serial}
-                    </button>
-                  ))}
-                </div>
+
+            {/* ── Collapsible: browse all panels grouped by type ───────────── */}
+            <button
+              type="button"
+              onClick={() => setShowAllPanels(v => !v)}
+              className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {showAllPanels ? '▾ Hide full list' : '▸ Browse all panels by type'}
+            </button>
+
+            {showAllPanels && (
+              <div className="mt-2 space-y-3 border border-gray-200 dark:border-gray-700 rounded-md p-3 max-h-72 overflow-y-auto">
+                {panelTypeGroups.length === 0 && (
+                  <p className="text-sm text-gray-400">No panels available.</p>
+                )}
+                {panelTypeGroups.map(({ type, panels }) => (
+                  <div key={type}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">{type}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {panels.map(p => {
+                        const serial = getSerial(p);
+                        const on = panelsSeen.includes(serial);
+                        return (
+                          <button
+                            type="button"
+                            key={serial}
+                            onClick={() => togglePanelSeen(serial)}
+                            className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                              on
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-blue-400'
+                            }`}
+                          >
+                            {on ? '✓ ' : ''}{serial}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
+            )}
+
+            {/* Serials selected here but no longer in the panel list (e.g. legacy
+                values) are preserved so editing never silently drops them.
+                They already render as removable chips above; this note just
+                surfaces them when browsing. */}
+            {orphanSeen.length > 0 && (
+              <p className="mt-2 text-[11px] text-gray-400">
+                {orphanSeen.length} selected panel{orphanSeen.length > 1 ? 's are' : ' is'} not in the current panel list (legacy) — still saved.
+              </p>
             )}
           </div>
 
