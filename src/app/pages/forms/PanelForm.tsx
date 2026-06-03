@@ -46,6 +46,17 @@ const showGui          = (type: string, status: string) => GUI_TYPES.includes(ty
 const showSurfaceFw    = (type: string) => type === 'Surface Tester';
 const showShootingFw   = (type: string) => type === 'Digital Shooting Panel';
 const PANEL_STATUS_OPTS = ['At Facility', 'Leased', 'In Repair', 'Loaned', 'Sold'];
+
+// ── Customer-assignment field rules (Unit #, SO #, Customer, District,
+//    Operating Company, Spare, Activity) ─────────────────────────────────────
+//   - At Facility  → fields hidden AND cleared on save (panel is back in-house)
+//   - Leased/Loaned/Sold → fields shown AND required
+//   - In Repair    → fields shown but optional (could be from XC or customer)
+const ASSIGN_REQUIRED_STATUSES = ['Leased', 'Loaned', 'Sold'];
+// Shown for everything except At Facility.
+const showAssign       = (status: string) => status !== '' && status !== 'At Facility';
+// Required only for Leased / Loaned / Sold.
+const assignRequired   = (status: string) => ASSIGN_REQUIRED_STATUSES.includes(status);
 const XC_BASE_OPTS      = XC_PANEL_BASES; // shared list (Denver kept for Panels inventory)
 const YES_NO_OPTS       = ['Yes', 'No'];
 const VERIFIED_OPTS     = ['Y', 'N'];
@@ -126,6 +137,42 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
     const type   = (fd.get('panel_type')   as string) || '';
     const status = (fd.get('panel_status') as string) || '';
 
+    // Customer-assignment fields are conditional on Panel Status:
+    //   - Required for Leased / Loaned / Sold
+    //   - Optional for In Repair
+    //   - Cleared (null) for At Facility, since the panel is back in-house
+    const assignVals = {
+      customer:          custId,
+      customer_district: (fd.get('customer_district') as string) || '',
+      operating_company: (fd.get('operating_company') as string) || '',
+      unit_number:       (fd.get('unit') as string) || '',
+      'so#':             (fd.get('so') as string) || '',
+      is_spare:          (fd.get('spare') as string) || '',
+      activity:          (fd.get('activity') as string) || '',
+    };
+
+    if (assignRequired(status)) {
+      const missing: string[] = [];
+      if (!assignVals.customer)          missing.push('Customer');
+      if (!assignVals.customer_district) missing.push('District');
+      if (!assignVals.operating_company) missing.push('Operating Company');
+      if (!assignVals.unit_number)       missing.push('Unit #');
+      if (!assignVals['so#'])            missing.push('SO #');
+      if (!assignVals.is_spare)          missing.push('Spare');
+      if (!assignVals.activity)          missing.push('Activity');
+      if (missing.length) {
+        toast.error(
+          `When Panel Status is "${status}", these fields are required: ${missing.join(', ')}.`,
+          { duration: 6000 },
+        );
+        setSaving(false);
+        return;
+      }
+    }
+
+    // At Facility wipes the customer-assignment fields entirely.
+    const clearAssign = status === 'At Facility';
+
     const payload: Record<string, any> = {
       serial_number:    fd.get('serial')          || '',
       panel_type:       type                       || null,
@@ -133,11 +180,11 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
       panel_status:     status                     || null,
       xc_base:          fd.get('xc_base')          || null,
       received_date:    fd.get('received_date')    || null,
-      customer:         custId                     || null,
-      customer_district:fd.get('customer_district')|| null,
-      operating_company:fd.get('operating_company')|| null,
-      unit_number:      fd.get('unit')             || null,
-      'so#':            fd.get('so')               || null,
+      customer:         clearAssign ? null : (assignVals.customer          || null),
+      customer_district:clearAssign ? null : (assignVals.customer_district || null),
+      operating_company:clearAssign ? null : (assignVals.operating_company || null),
+      unit_number:      clearAssign ? null : (assignVals.unit_number       || null),
+      'so#':            clearAssign ? null : (assignVals['so#']            || null),
       gui_version:      showGui(type, status) ? (fd.get('gui') || null) : null,
       shootingfw:       showShootingFw(type) ? (fd.get('shootingfw') || null) : null,
       wl_controlfw:     fd.get('wl_controlfw')     || null,
@@ -145,9 +192,9 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
       surfacefw:        showSurfaceFw(type) ? (fd.get('surfacefw') || null) : null,
       tracking_info:    fd.get('tracking_info')    || null,
       rma:              fd.get('rma')              || null,
-      is_spare:         fd.get('spare')            || null,
+      is_spare:         clearAssign ? null : (assignVals.is_spare || null),
       verified:         fd.get('verified')         || 'N',
-      activity:         fd.get('activity')         || 'N',
+      activity:         clearAssign ? null : (assignVals.activity || null),
       comments:         fd.get('comments')         || null,
       // Always stamp the user performing this save (create OR edit) — never
       // carry over the prior editor or rely on a typed value.
@@ -226,9 +273,12 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             </F>
           )}
 
-          <F label="Unit #">
-            <Input name="unit" defaultValue={panel?.unit_number || ''} placeholder="e.g. 42" />
-          </F>
+          {showAssign(panelStatus) && (
+            <F label="Unit #" required={assignRequired(panelStatus)}>
+              <Input name="unit" defaultValue={panel?.unit_number || ''} placeholder="e.g. 42"
+                required={assignRequired(panelStatus)} />
+            </F>
+          )}
 
           {showGui(panelType, panelStatus) && (
             <F label="GUI #">
@@ -236,9 +286,12 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             </F>
           )}
 
-          <F label="SO #">
-            <Input name="so" defaultValue={panel?.['so#'] || ''} />
-          </F>
+          {showAssign(panelStatus) && (
+            <F label="SO #" required={assignRequired(panelStatus)}>
+              <Input name="so" defaultValue={panel?.['so#'] || ''}
+                required={assignRequired(panelStatus)} />
+            </F>
+          )}
 
           {/* ── Status & Location ── */}
           <Section title="Status & Location" />
@@ -277,32 +330,39 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             />
           </F>
 
-          {/* ── Assignment ── */}
-          <Section title="Customer Assignment" />
+          {/* ── Assignment (only when Leased / Loaned / Sold / In Repair) ── */}
+          {showAssign(panelStatus) && (
+            <>
+              <Section title="Customer Assignment" />
 
-          <F label="Customer">
-            <select value={custId} onChange={e => setCustId(e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
-              <option value="">— Not assigned —</option>
-              {customers.map(c => <option key={c.row_id} value={c.row_id}>{c.customer}</option>)}
-            </select>
-          </F>
+              <F label="Customer" required={assignRequired(panelStatus)}>
+                <select value={custId} onChange={e => setCustId(e.target.value)}
+                  required={assignRequired(panelStatus)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
+                  <option value="">— Not assigned —</option>
+                  {customers.map(c => <option key={c.row_id} value={c.row_id}>{c.customer}</option>)}
+                </select>
+              </F>
 
-          <F label="District">
-            <select name="customer_district" defaultValue={panel?.customer_district || ''}
-              disabled={!custId} className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
-              <option value="">— Not assigned —</option>
-              {districts.map(d => <option key={d.row_id} value={d.row_id}>{d.customer_district}</option>)}
-            </select>
-          </F>
+              <F label="District" required={assignRequired(panelStatus)}>
+                <select name="customer_district" defaultValue={panel?.customer_district || ''}
+                  disabled={!custId} required={assignRequired(panelStatus)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
+                  <option value="">— Not assigned —</option>
+                  {districts.map(d => <option key={d.row_id} value={d.row_id}>{d.customer_district}</option>)}
+                </select>
+              </F>
 
-          <F label="Operating Company">
-            <select name="operating_company" defaultValue={panel?.operating_company || ''}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
-              <option value="">— Select —</option>
-              {epCompanies.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </F>
+              <F label="Operating Company" required={assignRequired(panelStatus)}>
+                <select name="operating_company" defaultValue={panel?.operating_company || ''}
+                  required={assignRequired(panelStatus)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
+                  <option value="">— Select —</option>
+                  {epCompanies.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </F>
+            </>
+          )}
 
           {/* ── Firmware ── */}
           <Section title="Firmware Versions" />
@@ -338,13 +398,16 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             <Input name="rma" defaultValue={panel?.rma || ''} />
           </F>
 
-          <F label="Spare?">
-            <select name="spare" defaultValue={panel?.is_spare || ''}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
-              <option value="">— Select —</option>
-              {YES_NO_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </F>
+          {showAssign(panelStatus) && (
+            <F label="Spare?" required={assignRequired(panelStatus)}>
+              <select name="spare" defaultValue={panel?.is_spare || ''}
+                required={assignRequired(panelStatus)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
+                <option value="">— Select —</option>
+                {YES_NO_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </F>
+          )}
 
           <F label="Verified?">
             <select name="verified" defaultValue={panel?.verified || 'N'}
@@ -353,12 +416,16 @@ export default function PanelForm({ open, onClose, onSaved, panel, currentUser }
             </select>
           </F>
 
-          <F label="Activity Flag">
-            <select name="activity" defaultValue={panel?.activity || 'N'}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
-              {ACTIVITY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </F>
+          {showAssign(panelStatus) && (
+            <F label="Activity Flag" required={assignRequired(panelStatus)}>
+              <select name="activity" defaultValue={panel?.activity || ''}
+                required={assignRequired(panelStatus)}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 text-sm">
+                <option value="">— Select —</option>
+                {ACTIVITY_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </F>
+          )}
 
           <F label="Updated By">
             {/* Auto-pulled from the logged-in user and locked — the person saving
