@@ -954,6 +954,16 @@ export default function Dashboard() {
   // Panel quick-edit modal (opened from "Panels Needing Attention").
   const [modalPanel,     setModalPanel]     = useState<any | null>(null);
 
+  // Collapsible section state (persisted so a minimized section stays minimized).
+  const [reviewCollapsed, setReviewCollapsed] = useState<boolean>(
+    () => { try { return localStorage.getItem("dash.reviewCollapsed") === "1"; } catch { return false; } }
+  );
+  const [attentionCollapsed, setAttentionCollapsed] = useState<boolean>(
+    () => { try { return localStorage.getItem("dash.attentionCollapsed") === "1"; } catch { return false; } }
+  );
+  const toggleReview = () => setReviewCollapsed(v => { const n = !v; try { localStorage.setItem("dash.reviewCollapsed", n ? "1" : "0"); } catch {} return n; });
+  const toggleAttention = () => setAttentionCollapsed(v => { const n = !v; try { localStorage.setItem("dash.attentionCollapsed", n ? "1" : "0"); } catch {} return n; });
+
   // ── Enrich incidents with resolved names ────────────────────────────────────
   const enriched = useMemo(() => incidents
     .filter(inc => {
@@ -1295,12 +1305,14 @@ export default function Dashboard() {
       {/* ── Needs My Review queue (director/admin only) ── */}
       {role === "admin" && !loading && reviewQueue.length > 0 && (
         <div style={{ marginBottom: 28, background: isDark ? "#1e293b" : "#fff", borderRadius: 12, border: `1px solid ${isDark ? "#7f1d1d" : "#fecaca"}`, overflow: "hidden", boxShadow: isDark ? "0 1px 3px rgba(0,0,0,0.4)" : "0 1px 3px rgba(0,0,0,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 20px", background: isDark ? "#450a0a" : "#fef2f2", borderBottom: `1px solid ${isDark ? "#7f1d1d" : "#fecaca"}` }}>
+          <div onClick={toggleReview} role="button" aria-expanded={!reviewCollapsed} title={reviewCollapsed ? "Expand" : "Minimize"} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 20px", background: isDark ? "#450a0a" : "#fef2f2", borderBottom: reviewCollapsed ? "none" : `1px solid ${isDark ? "#7f1d1d" : "#fecaca"}`, cursor: "pointer", userSelect: "none" }}>
+            <span style={{ fontSize: 12, color: isDark ? "#fca5a5" : "#991b1b", width: 14, display: "inline-block", transform: reviewCollapsed ? "rotate(-90deg)" : "none", transition: "transform 0.15s" }}>▾</span>
             <span style={{ fontSize: 16 }}>🔎</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: isDark ? "#fca5a5" : "#991b1b" }}>Needs My Review</span>
             <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 20, background: "#dc2626", color: "#fff" }}>{reviewQueue.length}</span>
             <span style={{ fontSize: 12, color: isDark ? "#f87171" : "#b91c1c", marginLeft: 4 }}>Open incidents awaiting your sign-off · oldest first</span>
           </div>
+          {!reviewCollapsed && (
           <div>
             {reviewQueue.map((inc, idx) => {
               const sevCfg = SEVERITY_COLORS[inc.incident_severity] ?? { bg: "#f1f5f9", color: "#475569" };
@@ -1347,18 +1359,21 @@ export default function Dashboard() {
               );
             })}
           </div>
+          )}
         </div>
       )}
 
       {/* ── Panels Needing Attention (director/admin only) ── */}
       {role === "admin" && !loading && attentionPanels.length > 0 && (
         <div style={{ marginBottom: 28, background: isDark ? "#1e293b" : "#fff", borderRadius: 12, border: `1px solid ${isDark ? "#78350f" : "#fed7aa"}`, overflow: "hidden", boxShadow: isDark ? "0 1px 3px rgba(0,0,0,0.4)" : "0 1px 3px rgba(0,0,0,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 20px", background: isDark ? "#451a03" : "#fff7ed", borderBottom: `1px solid ${isDark ? "#78350f" : "#fed7aa"}` }}>
+          <div onClick={toggleAttention} role="button" aria-expanded={!attentionCollapsed} title={attentionCollapsed ? "Expand" : "Minimize"} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 20px", background: isDark ? "#451a03" : "#fff7ed", borderBottom: attentionCollapsed ? "none" : `1px solid ${isDark ? "#78350f" : "#fed7aa"}`, cursor: "pointer", userSelect: "none" }}>
+            <span style={{ fontSize: 12, color: isDark ? "#fdba74" : "#9a3412", width: 14, display: "inline-block", transform: attentionCollapsed ? "rotate(-90deg)" : "none", transition: "transform 0.15s" }}>▾</span>
             <span style={{ fontSize: 16 }}>📡</span>
             <span style={{ fontSize: 15, fontWeight: 700, color: isDark ? "#fdba74" : "#9a3412" }}>Panels Needing Attention</span>
             <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 20, background: "#ea580c", color: "#fff" }}>{attentionPanels.length}</span>
             <span style={{ fontSize: 12, color: isDark ? "#fb923c" : "#c2410c", marginLeft: 4 }}>Missing required info · unverified · or not seen in {STALE_SEEN_DAYS}+ days</span>
           </div>
+          {!attentionCollapsed && (<>
           <div>
             {attentionPanels.slice(0, 12).map(({ panel: p, reasons }: any, idx: number) => (
               <div key={p.row_id || p.serial_number} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: idx < Math.min(attentionPanels.length, 12) - 1 ? `1px solid ${isDark ? "#334155" : "#f1f5f9"}` : "none" }}>
@@ -1383,19 +1398,17 @@ export default function Dashboard() {
               Showing 12 of {attentionPanels.length} · <button onClick={() => navigate('/panels')} style={{ background: "none", border: "none", color: "#0ea5e9", cursor: "pointer", fontWeight: 600, fontSize: 12, padding: 0 }}>View all panels →</button>
             </div>
           )}
+          </>)}
         </div>
       )}
 
       {/* ── KPI row ── */}
-      <div style={styles.grid4}>
+      <div style={{ ...styles.grid4, gridTemplateColumns: "repeat(5,1fr)" }}>
         <StatCard title="Field Visit Hours" value={`${fmt(totalHours)} hrs`} icon="🕐" loading={loading} accent="#10b981" styles={styles} />
         <StatCard title="Total Visits"       value={fmt(totalVisits)}         icon="📋" loading={loading} accent="#6366f1" styles={styles} />
         <StatCard title="Barrels Sold"       value={fmt(totalBarrels)}        icon="🛢️" loading={loading} accent="#f97316" styles={styles} />
         <StatCard title="Total Incidents"    value={fmt(totalIncidents)}      icon="⚠️" loading={loading} accent="#ef4444" styles={styles} />
-      </div>
-      <div style={{ ...styles.grid4, gridTemplateColumns: "1fr 1fr" }}>
-        <StatCard title="Stages"       value={fmt(totalStages)} icon="📈" loading={loading} accent="#8b5cf6" styles={styles} />
-        <StatCard title="Total Panels" value={fmt(panelTotal)}  icon="📡" loading={loading} accent="#0ea5e9" styles={styles} />
+        <StatCard title="Stages"             value={fmt(totalStages)}         icon="📈" loading={loading} accent="#8b5cf6" styles={styles} />
       </div>
 
       {/* ── Panel Status Breakdown ── */}
