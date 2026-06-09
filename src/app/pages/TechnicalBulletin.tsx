@@ -6,7 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Badge } from '../components/ui/badge';
-import { FileText, Download, Plus, X, Upload, Image as ImageIcon, Save, ArrowLeft } from 'lucide-react';
+import { FileText, Download, Plus, X, Upload, Image as ImageIcon, Save, ArrowLeft, ChevronUp, ChevronDown, Trash2, List as ListIcon, AlignLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateTechnicalBulletinPDF } from '../lib/generateTechnicalBulletinPDF';
 import { supabase } from '../lib/supabase';
@@ -40,6 +40,117 @@ const BULLETIN_TYPE_OPTIONS = [
     defaultSeverity: 'Information' as const,
   },
 ] as const;
+
+// ── Flexible body sections ────────────────────────────────────────────────────
+type SectionFormat = 'paragraph' | 'bullets';
+interface BulletinSection {
+  id: string;
+  heading: string;
+  format: SectionFormat;
+  // paragraph -> body holds the text; bullets -> bullets holds the list
+  body: string;
+  bullets: string[];
+}
+
+const newSectionId = () =>
+  `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+
+const makeSection = (
+  heading: string,
+  format: SectionFormat = 'paragraph',
+): BulletinSection => ({
+  id: newSectionId(),
+  heading,
+  format,
+  body: '',
+  bullets: format === 'bullets' ? [''] : [],
+});
+
+// Per-type seeded section templates (all fully editable afterward).
+const TYPE_SECTION_TEMPLATES: Record<string, Array<{ heading: string; format: SectionFormat }>> = {
+  'Alert': [
+    { heading: 'Subject', format: 'paragraph' },
+    { heading: 'Issue Description', format: 'paragraph' },
+    { heading: 'Immediate Action Required', format: 'bullets' },
+    { heading: 'Affected Scope', format: 'paragraph' },
+    { heading: 'Additional Information', format: 'paragraph' },
+  ],
+  'Customer Action Required': [
+    { heading: 'Subject', format: 'paragraph' },
+    { heading: 'Background', format: 'paragraph' },
+    { heading: 'Issue Description', format: 'paragraph' },
+    { heading: 'Required Customer Action', format: 'bullets' },
+    { heading: 'Implementation Schedule / Deadline', format: 'paragraph' },
+    { heading: 'Additional Information', format: 'paragraph' },
+  ],
+  'Internal Action': [
+    { heading: 'Subject', format: 'paragraph' },
+    { heading: 'Background', format: 'paragraph' },
+    { heading: 'Issue Description', format: 'paragraph' },
+    { heading: 'Corrective Action', format: 'paragraph' },
+    { heading: 'Implementation Schedule', format: 'paragraph' },
+    { heading: 'Loading / Handling Guidance', format: 'bullets' },
+    { heading: 'Additional Information', format: 'paragraph' },
+  ],
+  'Informational': [
+    { heading: 'Subject', format: 'paragraph' },
+    { heading: 'Background', format: 'paragraph' },
+    { heading: 'Details', format: 'paragraph' },
+    { heading: 'Additional Information', format: 'paragraph' },
+  ],
+};
+
+const seedSectionsForType = (type: string): BulletinSection[] => {
+  const tmpl = TYPE_SECTION_TEMPLATES[type] || TYPE_SECTION_TEMPLATES['Informational'];
+  return tmpl.map(t => makeSection(t.heading, t.format));
+};
+
+// Build sections from legacy columns (for bulletins created before Phase 2).
+const sectionsFromLegacy = (data: any): BulletinSection[] => {
+  const out: BulletinSection[] = [];
+  if (data.summary?.trim()) {
+    const s = makeSection('Summary', 'paragraph'); s.body = data.summary; out.push(s);
+  }
+  if (data.background?.trim()) {
+    const s = makeSection('Background', 'paragraph'); s.body = data.background; out.push(s);
+  }
+  if (data.technical_details?.trim()) {
+    const s = makeSection('Technical Details', 'paragraph'); s.body = data.technical_details; out.push(s);
+  }
+  const acts = (data.recommended_actions || []).filter((a: string) => a && a.trim());
+  if (acts.length) {
+    const s = makeSection('Recommended Actions', 'bullets'); s.bullets = acts; out.push(s);
+  }
+  return out.length ? out : [makeSection('Subject', 'paragraph')];
+};
+
+// Normalize loaded sections JSON into well-formed BulletinSection objects.
+const normalizeSections = (raw: any): BulletinSection[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(s => s && typeof s === 'object')
+    .map((s: any) => ({
+      id: s.id || newSectionId(),
+      heading: typeof s.heading === 'string' ? s.heading : '',
+      format: s.format === 'bullets' ? 'bullets' : 'paragraph',
+      body: typeof s.body === 'string' ? s.body : '',
+      bullets: Array.isArray(s.bullets) ? s.bullets.filter((b: any) => typeof b === 'string') : [],
+    }));
+};
+
+// Derive legacy summary/technical_details from sections so NOT NULL columns stay
+// valid and old views keep rendering. summary = first non-empty section body;
+// technical_details = all section content concatenated.
+const deriveLegacyFromSections = (sections: BulletinSection[]) => {
+  const sectionText = (s: BulletinSection) =>
+    s.format === 'bullets'
+      ? s.bullets.filter(b => b.trim()).map(b => `\u2022 ${b.trim()}`).join('\n')
+      : s.body.trim();
+  const filled = sections.filter(s => sectionText(s));
+  const summary = filled.length ? sectionText(filled[0]).split('\n')[0].slice(0, 500) : '(see bulletin)';
+  const technical = filled.map(s => `${s.heading}\n${sectionText(s)}`).join('\n\n') || '(see bulletin)';
+  return { summary, technical };
+};
 
 // Pull the first run of digits out of a (possibly messy) bulletin number string.
 // e.g. "2026-003" -> 2026, "004-2026" -> 4, "TB-001-01132024" -> 1
@@ -91,6 +202,8 @@ export default function TechnicalBulletin() {
   const [bulletinNumber, setBulletinNumber] = useState('');
   const [nextNumberPreview, setNextNumberPreview] = useState('');
   const [bulletinType, setBulletinType] = useState<string>('Informational');
+  const [sections, setSections] = useState<BulletinSection[]>(() => seedSectionsForType('Informational'));
+  const [sectionsTouched, setSectionsTouched] = useState(false);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [severity, setSeverity] = useState<'Critical' | 'High' | 'Medium' | 'Low' | 'Information'>('Information');
@@ -99,10 +212,6 @@ export default function TechnicalBulletin() {
   const [availableParts, setAvailableParts] = useState<string[]>([]);
   const [loadingParts, setLoadingParts] = useState(true);
   const [distributionList, setDistributionList] = useState('');
-  const [summary, setSummary] = useState('');
-  const [background, setBackground] = useState('');
-  const [technicalDetails, setTechnicalDetails] = useState('');
-  const [recommendedActions, setRecommendedActions] = useState<string[]>(['']);
   const [roleTypes, setRoleTypes] = useState<string[]>([]);
   const [customerFileUrl,   setCustomerFileUrl]   = useState('');
   const [customerFileLabel, setCustomerFileLabel] = useState('');
@@ -136,16 +245,16 @@ export default function TechnicalBulletin() {
     } else if (data) {
       setBulletinNumber(data.bulletin_number);
       setBulletinType(data.bulletin_type || 'Informational');
+      // Sections: use stored sections JSON if present, else build from legacy columns.
+      const loadedSections = normalizeSections(data.sections);
+      setSections(loadedSections.length ? loadedSections : sectionsFromLegacy(data));
+      setSectionsTouched(true); // editing an existing bulletin: never auto-reseed
       setTitle(data.title);
       setDate(data.date);
       setSeverity(data.severity);
       setAffectedProducts(data.affected_products || []);
       setAffectedParts(data.affected_parts || []);
       setDistributionList(data.distribution_list?.join(', ') || '');
-      setSummary(data.summary);
-      setBackground(data.background || '');
-      setTechnicalDetails(data.technical_details);
-      setRecommendedActions(data.recommended_actions || ['']);
       setRoleTypes(data.role_types || []);
       setProblemImages(data.problem_images || []);
       setFixImages(data.fix_images || []);
@@ -163,6 +272,69 @@ export default function TechnicalBulletin() {
     setBulletinType(newType);
     const opt = BULLETIN_TYPE_OPTIONS.find(t => t.value === newType);
     if (opt) setSeverity(opt.defaultSeverity);
+    // Reseed sections from the type template only if the user hasn't edited them yet.
+    if (!sectionsTouched && !isEditMode) {
+      setSections(seedSectionsForType(newType));
+    }
+  };
+
+  // ── Section editor handlers ─────────────────────────────────────────────────
+  const markTouched = () => { if (!sectionsTouched) setSectionsTouched(true); };
+
+  const updateSection = (id: string, patch: Partial<BulletinSection>) => {
+    markTouched();
+    setSections(prev => prev.map(s => (s.id === id ? { ...s, ...patch } : s)));
+  };
+  const setSectionFormat = (id: string, format: SectionFormat) => {
+    markTouched();
+    setSections(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      if (format === s.format) return s;
+      // Convert content when toggling format.
+      if (format === 'bullets') {
+        const lines = s.body.split('\n').map(l => l.replace(/^[\u2022\-*]\s*/, '').trim()).filter(Boolean);
+        return { ...s, format, bullets: lines.length ? lines : [''], body: '' };
+      } else {
+        return { ...s, format, body: s.bullets.filter(b => b.trim()).join('\n'), bullets: [] };
+      }
+    }));
+  };
+  const addSection = () => {
+    markTouched();
+    setSections(prev => [...prev, makeSection('New Section', 'paragraph')]);
+  };
+  const removeSection = (id: string) => {
+    markTouched();
+    setSections(prev => prev.filter(s => s.id !== id));
+  };
+  const moveSection = (id: string, dir: -1 | 1) => {
+    markTouched();
+    setSections(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx < 0) return prev;
+      const next = idx + dir;
+      if (next < 0 || next >= prev.length) return prev;
+      const copy = [...prev];
+      [copy[idx], copy[next]] = [copy[next], copy[idx]];
+      return copy;
+    });
+  };
+  const addBullet = (id: string) => {
+    markTouched();
+    setSections(prev => prev.map(s => (s.id === id ? { ...s, bullets: [...s.bullets, ''] } : s)));
+  };
+  const updateBullet = (id: string, bi: number, value: string) => {
+    markTouched();
+    setSections(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const bullets = [...s.bullets];
+      bullets[bi] = value;
+      return { ...s, bullets };
+    }));
+  };
+  const removeBullet = (id: string, bi: number) => {
+    markTouched();
+    setSections(prev => prev.map(s => (s.id === id ? { ...s, bullets: s.bullets.filter((_, i) => i !== bi) } : s)));
   };
 
   const toggleProduct = (product: string) => {
@@ -179,20 +351,6 @@ export default function TechnicalBulletin() {
         ? prev.filter(p => p !== part)
         : [...prev, part]
     );
-  };
-
-  const addAction = () => {
-    setRecommendedActions([...recommendedActions, '']);
-  };
-
-  const updateAction = (index: number, value: string) => {
-    const updated = [...recommendedActions];
-    updated[index] = value;
-    setRecommendedActions(updated);
-  };
-
-  const removeAction = (index: number) => {
-    setRecommendedActions(recommendedActions.filter((_, i) => i !== index));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -316,9 +474,21 @@ export default function TechnicalBulletin() {
     setFixImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Sections cleaned for persistence / PDF (drop fully-empty sections).
+  const cleanedSections = (): BulletinSection[] =>
+    sections
+      .map(s => ({
+        ...s,
+        heading: s.heading.trim(),
+        body: s.body.trim(),
+        bullets: s.bullets.map(b => b.trim()).filter(Boolean),
+      }))
+      .filter(s => s.heading || s.body || s.bullets.length);
+
   const handleGeneratePDF = async (compact = false) => {
-    if (!title.trim() || !summary.trim() || !technicalDetails.trim()) {
-      toast.error('Please fill out all required fields');
+    const cleaned = cleanedSections();
+    if (!title.trim() || cleaned.length === 0) {
+      toast.error('Please add a title and at least one section with content.');
       return;
     }
     if (!isEditMode && !bulletinNumber.trim()) {
@@ -336,10 +506,7 @@ export default function TechnicalBulletin() {
         affectedProducts: affectedProducts.length > 0 ? affectedProducts : ['All Products'],
         failedParts: affectedParts.length > 0 ? affectedParts : undefined,
         distributionList: distributionList.trim() ? distributionList.split(',').map(s => s.trim()) : undefined,
-        summary: summary.trim(),
-        background: background.trim() || undefined,
-        technicalDetails: technicalDetails.trim(),
-        recommendedActions: recommendedActions.filter(a => a.trim()),
+        sections: cleaned,
         roleType: roleTypes.length > 0 ? roleTypes : undefined,
         customerFileUrl:   customerFileUrl.trim()   || undefined,
         customerFileLabel: customerFileLabel.trim() || undefined,
@@ -363,16 +530,9 @@ export default function TechnicalBulletin() {
       toast.error('Please enter a title');
       return;
     }
-    if (!summary.trim()) {
-      toast.error('Please enter a summary');
-      return;
-    }
-    if (!technicalDetails.trim()) {
-      toast.error('Please enter technical details');
-      return;
-    }
-    if (recommendedActions.filter(a => a.trim()).length === 0) {
-      toast.error('Please add at least one recommended action');
+    const cleaned = cleanedSections();
+    if (cleaned.length === 0) {
+      toast.error('Please add at least one section with content.');
       return;
     }
 
@@ -389,19 +549,27 @@ export default function TechnicalBulletin() {
       assignedNumber = computeNextBulletinNumber(existing);
     }
 
+    // Canonical body = sections. Derive legacy columns so NOT NULL constraints
+    // hold and any older views/exports keep working.
+    const { summary: legacySummary, technical: legacyTechnical } = deriveLegacyFromSections(cleaned);
+    const legacyActions = cleaned
+      .filter(s => s.format === 'bullets')
+      .flatMap(s => s.bullets);
+
     const bulletinData = {
       bulletin_number: assignedNumber,
       bulletin_type: bulletinType,
+      sections: cleaned,
       title: title.trim(),
       date,
       severity,
       affected_products: affectedProducts,
       affected_parts: affectedParts,
       distribution_list: distributionList.trim() ? distributionList.split(',').map(s => s.trim()) : [],
-      summary: summary.trim(),
-      background: background.trim() || null,
-      technical_details: technicalDetails.trim(),
-      recommended_actions: recommendedActions.filter(a => a.trim()),
+      summary: legacySummary,
+      background: null,
+      technical_details: legacyTechnical,
+      recommended_actions: legacyActions,
       role_types: roleTypes,
       problem_images: problemImages,
       fix_images: fixImages,
@@ -739,76 +907,115 @@ export default function TechnicalBulletin() {
               </div>
             </div>
 
-            {/* Summary */}
-            <div>
-              <Label htmlFor="summary">Summary *</Label>
-              <Textarea
-                id="summary"
-                rows={3}
-                placeholder="Brief overview of the bulletin purpose and key takeaways..."
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-              />
-            </div>
-
-            {/* Background */}
-            <div>
-              <Label htmlFor="background">Background (optional)</Label>
-              <Textarea
-                id="background"
-                rows={3}
-                placeholder="Context or history that led to this bulletin..."
-                value={background}
-                onChange={(e) => setBackground(e.target.value)}
-              />
-            </div>
-
-            {/* Technical Details */}
-            <div>
-              <Label htmlFor="technicalDetails">Technical Details *</Label>
-              <Textarea
-                id="technicalDetails"
-                rows={5}
-                placeholder="Detailed technical information, analysis, specifications, or findings..."
-                value={technicalDetails}
-                onChange={(e) => setTechnicalDetails(e.target.value)}
-              />
-            </div>
-
-            {/* Recommended Actions */}
+            {/* Body Sections (flexible) */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Label>Recommended Actions *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addAction}
-                >
+                <div>
+                  <Label className="text-base font-semibold">Bulletin Sections *</Label>
+                  <p className="text-xs text-gray-500">Rename, reorder, add or remove sections. Each can be a paragraph or a bullet list.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addSection}>
                   <Plus className="w-4 h-4 mr-1" />
-                  Add Action
+                  Add Section
                 </Button>
               </div>
-              <div className="space-y-2">
-                {recommendedActions.map((action, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      placeholder={`Action ${index + 1}...`}
-                      value={action}
-                      onChange={(e) => updateAction(index, e.target.value)}
-                    />
-                    {recommendedActions.length > 1 && (
+
+              <div className="space-y-4">
+                {sections.map((section, sIdx) => (
+                  <div key={section.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-800">
+                    {/* Section header row: reorder + heading + format toggle + remove */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex flex-col">
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                          onClick={() => moveSection(section.id, -1)}
+                          disabled={sIdx === 0}
+                          title="Move up"
+                        >
+                          <ChevronUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="text-gray-400 hover:text-gray-700 disabled:opacity-30"
+                          onClick={() => moveSection(section.id, 1)}
+                          disabled={sIdx === sections.length - 1}
+                          title="Move down"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <Input
+                        className="flex-1 font-medium"
+                        placeholder="Section heading (e.g., Issue Description)"
+                        value={section.heading}
+                        onChange={(e) => updateSection(section.id, { heading: e.target.value })}
+                      />
+                      <div className="flex rounded-md border border-gray-300 dark:border-gray-600 overflow-hidden">
+                        <button
+                          type="button"
+                          className={`px-2 py-1.5 text-xs flex items-center gap-1 ${section.format === 'paragraph' ? 'bg-blue-600 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
+                          onClick={() => setSectionFormat(section.id, 'paragraph')}
+                          title="Paragraph"
+                        >
+                          <AlignLeft className="w-3.5 h-3.5" /> Text
+                        </button>
+                        <button
+                          type="button"
+                          className={`px-2 py-1.5 text-xs flex items-center gap-1 ${section.format === 'bullets' ? 'bg-blue-600 text-white' : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}
+                          onClick={() => setSectionFormat(section.id, 'bullets')}
+                          title="Bullet list"
+                        >
+                          <ListIcon className="w-3.5 h-3.5" /> Bullets
+                        </button>
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => removeAction(index)}
+                        onClick={() => removeSection(section.id)}
+                        title="Remove section"
                       >
-                        <X className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 text-red-600" />
                       </Button>
+                    </div>
+
+                    {/* Section body */}
+                    {section.format === 'paragraph' ? (
+                      <Textarea
+                        rows={3}
+                        placeholder="Section text..."
+                        value={section.body}
+                        onChange={(e) => updateSection(section.id, { body: e.target.value })}
+                      />
+                    ) : (
+                      <div className="space-y-2">
+                        {section.bullets.map((bullet, bi) => (
+                          <div key={bi} className="flex gap-2 items-center">
+                            <span className="text-gray-400">•</span>
+                            <Input
+                              placeholder={`Point ${bi + 1}...`}
+                              value={bullet}
+                              onChange={(e) => updateBullet(section.id, bi, e.target.value)}
+                            />
+                            {section.bullets.length > 1 && (
+                              <Button type="button" variant="outline" size="sm" onClick={() => removeBullet(section.id, bi)}>
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => addBullet(section.id)}>
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Point
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))}
+                {sections.length === 0 && (
+                  <p className="text-sm text-gray-500 italic">No sections yet — click “Add Section” to start.</p>
+                )}
               </div>
             </div>
 
@@ -1037,8 +1244,8 @@ export default function TechnicalBulletin() {
                 <span>{affectedProducts.length > 0 ? affectedProducts.length : 'All'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-300">Actions:</span>
-                <span>{recommendedActions.filter(a => a.trim()).length}</span>
+                <span className="text-gray-600 dark:text-gray-300">Sections:</span>
+                <span>{cleanedSections().length}</span>
               </div>
             </div>
           </CardContent>
