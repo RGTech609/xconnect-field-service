@@ -19,6 +19,7 @@ ALTER TABLE technical_bulletins ADD COLUMN IF NOT EXISTS customer_file_label TEX
 CREATE TABLE IF NOT EXISTS technical_bulletins (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bulletin_number TEXT NOT NULL,
+  bulletin_type TEXT NOT NULL DEFAULT 'Informational',
   title TEXT NOT NULL,
   date DATE NOT NULL,
   severity TEXT NOT NULL CHECK (severity IN ('Critical', 'High', 'Medium', 'Low', 'Information')),
@@ -41,10 +42,12 @@ CREATE TABLE IF NOT EXISTS technical_bulletins (
 -- If the table already exists, add the columns (safe to run multiple times):
 ALTER TABLE technical_bulletins ADD COLUMN IF NOT EXISTS customer_file_url TEXT;
 ALTER TABLE technical_bulletins ADD COLUMN IF NOT EXISTS customer_file_label TEXT;
+ALTER TABLE technical_bulletins ADD COLUMN IF NOT EXISTS bulletin_type TEXT NOT NULL DEFAULT 'Informational';
 
 CREATE INDEX IF NOT EXISTS idx_technical_bulletins_bulletin_number ON technical_bulletins(bulletin_number);
 CREATE INDEX IF NOT EXISTS idx_technical_bulletins_date ON technical_bulletins(date DESC);
 CREATE INDEX IF NOT EXISTS idx_technical_bulletins_severity ON technical_bulletins(severity);
+CREATE INDEX IF NOT EXISTS idx_technical_bulletins_type ON technical_bulletins(bulletin_type);
 
 -- Disable RLS to allow all operations
 ALTER TABLE technical_bulletins DISABLE ROW LEVEL SECURITY;
