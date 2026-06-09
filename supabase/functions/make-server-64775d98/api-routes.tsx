@@ -337,44 +337,71 @@ apiRoutes.delete("/districts/:id", requireAdmin, async (c) => {
 
 const listFieldVisits = async (c: any) => {
   try {
-    const { data, error } = await supabase
-      .from('fieldvisits')
-      .select('*')
-      .order('arrival_date', { ascending: false });
+    // Fetch ALL field visits with range-based pagination to defeat the
+    // PostgREST default 1000-row cap. A single .select() silently truncates
+    // at 1000 rows, which previously capped every dashboard metric/chart.
+    const step = 1000;
+    let from = 0;
+    const allVisits: any[] = [];
+    while (true) {
+      const { data, error } = await supabase
+        .from('fieldvisits')
+        .select('*')
+        .order('arrival_date', { ascending: false })
+        .range(from, from + step - 1);
 
-    if (error) {
-      console.error('Error fetching field visits:', error);
-      return c.json({ error: error.message }, 500);
+      if (error) {
+        console.error('Error fetching field visits:', error);
+        return c.json({ error: error.message }, 500);
+      }
+
+      const batch = data || [];
+      allVisits.push(...batch);
+      if (batch.length < step) break; // last page
+      from += step;
     }
 
-    // Enrich with customer and district names
-    const enrichedData = await Promise.all((data || []).map(async (visit) => {
-      let customerName = null;
-      let districtName = null;
+    // Batch-fetch customer + district names once (avoids N+1 per-row queries
+    // that would be very slow now that we return the full dataset).
+    const customerIds = Array.from(
+      new Set(allVisits.map((v) => v.customer).filter((id) => id != null))
+    );
+    const districtIds = Array.from(
+      new Set(allVisits.map((v) => v.customer_district).filter((id) => id != null))
+    );
 
-      if (visit.customer) {
-        const { data: customer } = await supabase
-          .from('customers')
-          .select('customer')
-          .eq('row_id', visit.customer)
-          .single();
-        customerName = customer?.customer;
-      }
+    const customerNameById: Record<string, string | null> = {};
+    const districtNameById: Record<string, string | null> = {};
 
-      if (visit.customer_district) {
-        const { data: district } = await supabase
-          .from('districts')
-          .select('customer_district')
-          .eq('row_id', visit.customer_district)
-          .single();
-        districtName = district?.customer_district;
-      }
+    // Fetch in chunks to avoid overly long IN() lists.
+    const chunk = (arr: any[], size: number): any[][] => {
+      const out: any[][] = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
 
-      return {
-        ...visit,
-        customerName,
-        districtName
-      };
+    for (const ids of chunk(customerIds, 200)) {
+      if (ids.length === 0) continue;
+      const { data: rows } = await supabase
+        .from('customers')
+        .select('row_id, customer')
+        .in('row_id', ids);
+      for (const r of rows || []) customerNameById[r.row_id] = r.customer ?? null;
+    }
+
+    for (const ids of chunk(districtIds, 200)) {
+      if (ids.length === 0) continue;
+      const { data: rows } = await supabase
+        .from('districts')
+        .select('row_id, customer_district')
+        .in('row_id', ids);
+      for (const r of rows || []) districtNameById[r.row_id] = r.customer_district ?? null;
+    }
+
+    const enrichedData = allVisits.map((visit) => ({
+      ...visit,
+      customerName: visit.customer != null ? (customerNameById[visit.customer] ?? null) : null,
+      districtName: visit.customer_district != null ? (districtNameById[visit.customer_district] ?? null) : null,
     }));
 
     return c.json(enrichedData);

@@ -84,7 +84,7 @@ export default function FieldVisitsNew() {
   const [editingVisit, setEditingVisit] = useState<any>(null);
 
   // ── Dashboard drill state ────────────────────────────────────────────────────
-  const [drill, setDrill] = useState<{ dim: string; value: string } | null>(null);
+  const [drill, setDrill] = useState<{ dim: string; value: string; customer?: string } | null>(null);
 
   // ── Report URL params ───────────────────────────────────────────────────────
   const reportCustomerName = searchParams.get('customerName');
@@ -224,18 +224,34 @@ export default function FieldVisitsNew() {
       .sort((a, b) => b.count - a.count);
   }, [visits]);
 
-  // ── SQM (xc_rep) breakdown for bar chart ────────────────────────────────────
-  const repData = useMemo(() => {
+  // ── Field Visits per Customer breakdown for bar chart ───────────────────────
+  const customerData = useMemo(() => {
     const counts: Record<string, number> = {};
     visits.forEach(v => {
-      const r = v.xc_rep || 'Unknown';
-      counts[r] = (counts[r] || 0) + 1;
+      const c = v.customerName || 'Unknown';
+      counts[c] = (counts[c] || 0) + 1;
     });
     return Object.entries(counts)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
   }, [visits]);
+
+  // ── Per-district breakdown WITHIN a drilled-into customer ───────────────────
+  const customerDistrictData = useMemo(() => {
+    if (!drill || drill.dim !== 'customer') return [];
+    const counts: Record<string, number> = {};
+    visits
+      .filter(v => (v.customerName || 'Unknown') === drill.value)
+      .forEach(v => {
+        const d = v.districtName || 'Unknown';
+        counts[d] = (counts[d] || 0) + 1;
+      });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [visits, drill]);
 
   // ── Monthly trend (last 6 months) bar chart ──────────────────────────────────
   const monthlyTrendData = useMemo(() => {
@@ -264,6 +280,8 @@ export default function FieldVisitsNew() {
     if (drill.dim === 'location') return visits.filter(v => v.field_or_facility === drill.value).sort((a, b) => compareIds(b.field_visit_id, a.field_visit_id));
     if (drill.dim === 'purpose')  return visits.filter(v => (v.visit_purpose || 'Unknown') === drill.value).sort((a, b) => compareIds(b.field_visit_id, a.field_visit_id));
     if (drill.dim === 'rep')      return visits.filter(v => (v.xc_rep || 'Unknown') === drill.value).sort((a, b) => compareIds(b.field_visit_id, a.field_visit_id));
+    if (drill.dim === 'customer') return visits.filter(v => (v.customerName || 'Unknown') === drill.value).sort((a, b) => compareIds(b.field_visit_id, a.field_visit_id));
+    if (drill.dim === 'customer_district') return visits.filter(v => (v.customerName || 'Unknown') === drill.customer && (v.districtName || 'Unknown') === drill.value).sort((a, b) => compareIds(b.field_visit_id, a.field_visit_id));
     if (drill.dim === 'month_trend') {
       return visits.filter(v => {
         if (!v.arrival_date) return false;
@@ -448,14 +466,33 @@ export default function FieldVisitsNew() {
                 </CardContent>
               </Card>
 
-              {/* Chart 2: Visits by SQM (xc_rep) */}
+              {/* Chart 2: Field Visits per Customer → drill to per-district */}
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Visits by SQM (Top 10)</CardTitle>
+                  {drill?.dim === 'customer' ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <CardTitle className="text-base truncate">
+                        Districts — {drill.value} (Top 10)
+                      </CardTitle>
+                      <button
+                        type="button"
+                        className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+                        onClick={() => setDrill(null)}
+                      >
+                        ← Back to customers
+                      </button>
+                    </div>
+                  ) : (
+                    <CardTitle className="text-base">Field Visits per Customer (Top 10)</CardTitle>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={repData} layout="vertical" margin={{ top: 4, right: 16, left: 80, bottom: 4 }}>
+                    <BarChart
+                      data={drill?.dim === 'customer' ? customerDistrictData : customerData}
+                      layout="vertical"
+                      margin={{ top: 4, right: 16, left: 80, bottom: 4 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e5e7eb'} />
                       <XAxis type="number" tick={{ fontSize: 11, fill: axisColor }} allowDecimals={false} />
                       <YAxis
@@ -472,7 +509,21 @@ export default function FieldVisitsNew() {
                         radius={[0, 4, 4, 0]}
                         onClick={(data: any) => {
                           const v = data?.name as string;
-                          setDrill(prev => prev?.dim === 'rep' && prev.value === v ? null : { dim: 'rep', value: v });
+                          if (drill?.dim === 'customer') {
+                            // We are showing districts for the current customer —
+                            // clicking a district drills into that customer+district list.
+                            const cust = drill.value;
+                            setDrill(prev =>
+                              prev?.dim === 'customer_district' && prev.value === v && prev.customer === cust
+                                ? { dim: 'customer', value: cust }
+                                : { dim: 'customer_district', value: v, customer: cust }
+                            );
+                          } else {
+                            // Top-level: clicking a customer drills into its districts.
+                            setDrill(prev =>
+                              prev?.dim === 'customer' && prev.value === v ? null : { dim: 'customer', value: v }
+                            );
+                          }
                         }}
                         style={{ cursor: 'pointer' }}
                       />
@@ -518,7 +569,7 @@ export default function FieldVisitsNew() {
                   {drill ? (
                     <>
                       <span>
-                        Showing {drillRows.length} visit{drillRows.length !== 1 ? 's' : ''} · <span className="text-blue-600">{drill.value}</span>
+                        Showing {drillRows.length} visit{drillRows.length !== 1 ? 's' : ''} · <span className="text-blue-600">{drill.dim === 'customer_district' && drill.customer ? `${drill.customer} • ${drill.value}` : drill.value}</span>
                       </span>
                       <button
                         type="button"
