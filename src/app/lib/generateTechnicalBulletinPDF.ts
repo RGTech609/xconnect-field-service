@@ -6,6 +6,15 @@ import {
 } from './pdfUtils';
 import { XCONNECT_LOGO_B64 } from './brandAssets';
 
+// Canonical body model (Phase 2): an ordered list of editable sections.
+export interface BulletinPdfSection {
+  id?: string;
+  heading: string;
+  format: 'paragraph' | 'bullets';
+  body?: string;
+  bullets?: string[];
+}
+
 export interface TechnicalBulletinOptions {
   bulletinNumber: string;
   title: string;
@@ -14,10 +23,16 @@ export interface TechnicalBulletinOptions {
   affectedProducts: string[];
   failedParts?: string[];
   distributionList?: string[];
-  summary: string;
+  // Phase 2 canonical body. When present (and non-empty), sections render in
+  // order and the legacy summary/background/technicalDetails/recommendedActions
+  // fields are ignored.
+  sections?: BulletinPdfSection[];
+  // Legacy body fields — used as a fallback when `sections` is absent/empty
+  // (so the list-page PDF button keeps working for pre-Phase-2 bulletins).
+  summary?: string;
   background?: string;
-  technicalDetails: string;
-  recommendedActions: string[];
+  technicalDetails?: string;
+  recommendedActions?: string[];
   roleType?: string | string[];
   customerFileUrl?: string;
   customerFileLabel?: string;
@@ -307,7 +322,69 @@ function drawActions(doc: any, actions: string[], y: number, compact: boolean, s
   return y + boxH + (compact ? 5 * sm : 7);
 }
 
-// ── Contact + download row — sm scales trailing gap ───────────────────────────
+// Generic editable section (Phase 2) - paragraph or bulleted list.
+// Optionally floats an image to the right of the section body (used for the
+// first content section so a problem image sits beside the text, mirroring the
+// old drawTechWithImage layout). Returns the new y.
+async function drawSection(
+  doc: any, y: number,
+  section: BulletinPdfSection,
+  compact: boolean,
+  sm = 1,
+  sideImage?: { url: string; caption?: string },
+): Promise<number> {
+  const fs    = compact ? 9.5 : 11;
+  const lineH = compact ? 4.2 : 4.8;
+
+  y = sectionLabel(doc, section.heading || 'Section', y, compact);
+
+  const hasImg  = !!sideImage;
+  const bodyW   = hasImg ? CONT_W * 0.57 : CONT_W;
+  const imgW    = hasImg ? CONT_W * 0.40 : 0;
+  const imgX    = MARGIN + bodyW + CONT_W * 0.03;
+  const maxImgH = compact ? 42 : 72;
+
+  let imgRendH = 0;
+  if (hasImg) {
+    imgRendH = await addContainedImage(doc, sideImage!.url, imgX, y, imgW, maxImgH, compact);
+  }
+
+  let contentH = 0;
+
+  if (section.format === 'bullets') {
+    const bullets = (section.bullets || []).map(b => b.trim()).filter(Boolean);
+    const indentX = MARGIN + 5;
+    const textX   = MARGIN + 9;
+    const wrapW   = bodyW - 11;
+    let by = y;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(fs); doc.setTextColor(40, 40, 40);
+    bullets.forEach((b) => {
+      const ls: string[] = doc.splitTextToSize(b, wrapW);
+      doc.setFillColor(...XC_GREEN);
+      doc.circle(indentX, by + fs * 0.176 - 0.4, 0.9, 'F');
+      doc.setTextColor(40, 40, 40);
+      ls.forEach((l: string, i: number) => doc.text(l, textX, by + i * lineH));
+      by += ls.length * lineH + 1.2;
+    });
+    contentH = by - y;
+  } else {
+    const text = (section.body || '').trim();
+    const lines: string[] = doc.splitTextToSize(text, bodyW - 2);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(fs); doc.setTextColor(40, 40, 40);
+    lines.forEach((l: string, i: number) => doc.text(l, MARGIN, y + i * lineH));
+    contentH = lines.length * lineH;
+  }
+
+  if (hasImg && sideImage!.caption && imgRendH > 0) {
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(...GRAY_TEXT);
+    doc.text(sideImage!.caption, imgX, y + imgRendH + 3, { maxWidth: imgW });
+    imgRendH += 4;
+  }
+
+  return y + Math.max(contentH, imgRendH) + (compact ? 5 * sm : 7);
+}
+
+// Contact + download row - sm scales trailing gap.
 async function drawContactDownload(
   doc: any, y: number,
   roleText: string,
@@ -391,6 +468,7 @@ async function renderBulletin(
     bulletinNumber, title, date, severity,
     affectedProducts, failedParts, distributionList,
     summary, background, technicalDetails, recommendedActions,
+    sections,
     roleType, customerFileUrl, customerFileLabel,
     problemImages, fixImages,
   } = opts;
@@ -399,7 +477,31 @@ async function renderBulletin(
   const partsText    = failedParts?.length       ? failedParts.join(', ')    : '—';
   const distText     = distributionList?.length   ? distributionList.join(', ') : '—';
   const roleText     = Array.isArray(roleType) ? roleType.join(', ') : (roleType || '');
-  const actions      = recommendedActions.filter(a => a.trim());
+
+  // ── Resolve the body model ──────────────────────────────────────────────────
+  // Phase 2: `sections` is canonical. If absent/empty (pre-Phase-2 bulletins via
+  // the list page), synthesize sections from the legacy columns so we have a
+  // single rendering path.
+  const hasContent = (s: BulletinPdfSection) =>
+    s.format === 'bullets'
+      ? (s.bullets || []).some(b => b.trim())
+      : !!(s.body || '').trim();
+
+  let bodySections: BulletinPdfSection[] = (sections || []).filter(hasContent);
+
+  if (bodySections.length === 0) {
+    const legacy: BulletinPdfSection[] = [];
+    if (summary && summary.trim())
+      legacy.push({ heading: 'Summary', format: 'paragraph', body: summary });
+    if (background && background.trim())
+      legacy.push({ heading: 'Background', format: 'paragraph', body: background });
+    if (technicalDetails && technicalDetails.trim())
+      legacy.push({ heading: 'Technical Details', format: 'paragraph', body: technicalDetails });
+    const acts = (recommendedActions || []).filter(a => a.trim());
+    if (acts.length)
+      legacy.push({ heading: 'Recommended Actions', format: 'bullets', bullets: acts });
+    bodySections = legacy;
+  }
 
   let y = 0;
   let pageCount = 1;
@@ -417,22 +519,46 @@ async function renderBulletin(
   checkPage(20);
   y = drawMetadata(doc, y, productsText, partsText, distText, compact, sm);
 
-  checkPage(14);
-  y = drawSummary(doc, summary, y, severity, compact, sm);
+  // ── Body: ordered editable sections ──────────────────────────────────────────
+  // The first paragraph section renders as the severity-colored summary callout
+  // for visual prominence; the first problem image floats beside the first
+  // following section (mirroring the old tech-details + side-image layout).
+  const firstProblem = problemImages && problemImages.length > 0 ? problemImages[0] : undefined;
 
-  if (background) {
+  let sideImageUsed = false;
+  let startIdx = 0;
+
+  // Use the leading paragraph section as the callout when available.
+  if (bodySections.length > 0 && bodySections[0].format === 'paragraph') {
     checkPage(14);
-    y = sectionLabel(doc, 'Background', y, compact);
-    const fs = compact ? 9.5 : 11; const lineH = compact ? 4.2 : 4.8;
-    const bgLines: string[] = doc.splitTextToSize(background, CONT_W - 2);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(fs); doc.setTextColor(40,40,40);
-    bgLines.forEach((l: string, i: number) => doc.text(l, MARGIN, y + i * lineH));
-    y += bgLines.length * lineH + (compact ? 5 * sm : 7);
+    y = drawSummary(doc, (bodySections[0].body || '').trim(), y, severity, compact, sm);
+    startIdx = 1;
   }
 
-  checkPage(compact ? 30 : 50);
-  const firstProblem = problemImages && problemImages.length > 0 ? problemImages[0] : undefined;
-  y = await drawTechWithImage(doc, y, technicalDetails, firstProblem, compact, USABLE_H, sm);
+  for (let i = startIdx; i < bodySections.length; i++) {
+    const sec = bodySections[i];
+    checkPage(compact ? 24 : 36);
+    // Attach the problem image beside the first paragraph section we draw
+    // generically (skip for bullet sections, which use full width).
+    const side =
+      !sideImageUsed && firstProblem && sec.format === 'paragraph'
+        ? firstProblem
+        : undefined;
+    if (side) sideImageUsed = true;
+    y = await drawSection(doc, y, sec, compact, sm, side);
+  }
+
+  // If no section consumed the side image, render the first problem image inline
+  // below the body so it is never dropped.
+  if (firstProblem && !sideImageUsed) {
+    checkPage(compact ? 28 : 50);
+    if (firstProblem.caption) {
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(...GRAY_TEXT);
+      doc.text(firstProblem.caption, MARGIN, y); y += 4;
+    }
+    const h = await addContainedImage(doc, firstProblem.url, MARGIN, y, CONT_W, compact ? 35 : 70, compact);
+    y += (h || 0) + (compact ? 4 * sm : 6);
+  }
 
   const extraProblems = problemImages ? problemImages.slice(1) : [];
   if (extraProblems.length > 0) {
@@ -447,11 +573,6 @@ async function renderBulletin(
       const h = await addContainedImage(doc, img.url, MARGIN, y, CONT_W, compact ? 35 : 70, compact);
       y += (h || 0) + (compact ? 4 * sm : 6);
     }
-  }
-
-  if (actions.length > 0) {
-    checkPage(compact ? 20 : 30);
-    y = drawActions(doc, actions, y, compact, sm);
   }
 
   if (fixImages && fixImages.length > 0) {

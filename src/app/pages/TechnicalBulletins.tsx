@@ -24,6 +24,7 @@ interface TechnicalBulletin {
   background: string | null;
   technical_details: string;
   recommended_actions: string[];
+  sections?: any[];
   role_types: string[];
   problem_images: Array<{ url: string; caption: string }>;
   fix_images: Array<{ url: string; caption: string }>;
@@ -120,6 +121,11 @@ export default function TechnicalBulletins() {
         affectedProducts: bulletin.affected_products,
         failedParts: bulletin.affected_parts.length > 0 ? bulletin.affected_parts : undefined,
         distributionList: bulletin.distribution_list.length > 0 ? bulletin.distribution_list : undefined,
+        // Phase 2: pass the canonical sections when present; the PDF generator
+        // falls back to the legacy fields below for pre-Phase-2 bulletins.
+        sections: Array.isArray(bulletin.sections) && bulletin.sections.length > 0
+          ? bulletin.sections
+          : undefined,
         summary: bulletin.summary,
         background: bulletin.background || undefined,
         technicalDetails: bulletin.technical_details,
