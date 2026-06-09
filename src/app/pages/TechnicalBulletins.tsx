@@ -13,6 +13,7 @@ import { useAuth } from '../lib/auth-context';
 interface TechnicalBulletin {
   id: string;
   bulletin_number: string;
+  bulletin_type?: string;
   title: string;
   date: string;
   severity: 'Critical' | 'High' | 'Medium' | 'Low' | 'Information';
@@ -134,6 +135,24 @@ export default function TechnicalBulletins() {
       toast.error('Failed to generate PDF');
     }
   };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'Alert':
+        return 'bg-red-50 text-red-700 border-red-200';
+      case 'Customer Action Required':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
+      case 'Internal Action':
+        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+      case 'Informational':
+        return 'bg-slate-50 text-slate-700 border-slate-200';
+      default:
+        return 'bg-gray-50 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getTypeLabel = (type: string) =>
+    type === 'Informational' ? 'Informational / Notice' : type;
 
   const getSeverityColor = (sev: string) => {
     switch (sev) {
@@ -313,6 +332,11 @@ export default function TechnicalBulletins() {
                         <Badge className={getSeverityColor(bulletin.severity)}>
                           {bulletin.severity}
                         </Badge>
+                        {bulletin.bulletin_type && (
+                          <Badge className={getTypeColor(bulletin.bulletin_type)}>
+                            {getTypeLabel(bulletin.bulletin_type)}
+                          </Badge>
+                        )}
                         <span className="text-sm text-gray-500">
                           {new Date(bulletin.date).toLocaleDateString()}
                         </span>

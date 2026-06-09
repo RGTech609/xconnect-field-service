@@ -12,6 +12,62 @@ import { generateTechnicalBulletinPDF } from '../lib/generateTechnicalBulletinPD
 import { supabase } from '../lib/supabase';
 
 const SEVERITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low', 'Information'] as const;
+
+// Bulletin types — each serves a different purpose and seeds a sensible default severity.
+const BULLETIN_TYPE_OPTIONS = [
+  {
+    value: 'Alert',
+    label: 'Alert',
+    description: 'Urgent safety or quality warning requiring immediate attention.',
+    defaultSeverity: 'Critical' as const,
+  },
+  {
+    value: 'Customer Action Required',
+    label: 'Customer Action Required',
+    description: 'The customer must take action (inspect, return, update, etc.).',
+    defaultSeverity: 'High' as const,
+  },
+  {
+    value: 'Internal Action',
+    label: 'Internal Action',
+    description: 'Only XConnect teams (SQMs / field) need to act.',
+    defaultSeverity: 'Medium' as const,
+  },
+  {
+    value: 'Informational',
+    label: 'Informational / Notice',
+    description: 'General notice or FYI — no action required.',
+    defaultSeverity: 'Information' as const,
+  },
+] as const;
+
+// Pull the first run of digits out of a (possibly messy) bulletin number string.
+// e.g. "2026-003" -> 2026, "004-2026" -> 4, "TB-001-01132024" -> 1
+// We treat 1-3 digit runs as sequence numbers; anything 4+ digits (years) is ignored
+// so the clean sequential counter (001, 004, ...) keeps incrementing.
+const extractSequence = (raw: string): number => {
+  if (!raw) return 0;
+  const runs = raw.match(/\d+/g) || [];
+  let best = 0;
+  for (const r of runs) {
+    if (r.length <= 3) {
+      const n = parseInt(r, 10);
+      if (!isNaN(n) && n > best) best = n;
+    }
+  }
+  return best;
+};
+
+// Compute the next sequential bulletin number from all existing rows.
+// Returns a zero-padded 3-digit string, e.g. "005".
+const computeNextBulletinNumber = (existing: string[]): string => {
+  let max = 0;
+  for (const b of existing) {
+    const seq = extractSequence(b);
+    if (seq > max) max = seq;
+  }
+  return String(max + 1).padStart(3, '0');
+};
 const PRODUCT_OPTIONS = [
   'mRAIL', 'XC 2.75"', 'XC', 'DSX', 'RAIL', 'LynX',
   'ReConnect', 'Haptix', 'XC Oriented', 'XFire', 'All Products'
@@ -33,6 +89,8 @@ export default function TechnicalBulletin() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [bulletinNumber, setBulletinNumber] = useState('');
+  const [nextNumberPreview, setNextNumberPreview] = useState('');
+  const [bulletinType, setBulletinType] = useState<string>('Informational');
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [severity, setSeverity] = useState<'Critical' | 'High' | 'Medium' | 'Low' | 'Information'>('Information');
@@ -77,6 +135,7 @@ export default function TechnicalBulletin() {
       navigate('/technical-bulletins');
     } else if (data) {
       setBulletinNumber(data.bulletin_number);
+      setBulletinType(data.bulletin_type || 'Informational');
       setTitle(data.title);
       setDate(data.date);
       setSeverity(data.severity);
@@ -96,6 +155,14 @@ export default function TechnicalBulletin() {
       setCustomerFileLabel(fileEntry.label || '');
     }
     setLoading(false);
+  };
+
+  // When user picks a bulletin type, seed a sensible default severity
+  // (only if they haven't already changed severity away from the default).
+  const handleTypeChange = (newType: string) => {
+    setBulletinType(newType);
+    const opt = BULLETIN_TYPE_OPTIONS.find(t => t.value === newType);
+    if (opt) setSeverity(opt.defaultSeverity);
   };
 
   const toggleProduct = (product: string) => {
@@ -250,8 +317,12 @@ export default function TechnicalBulletin() {
   };
 
   const handleGeneratePDF = async (compact = false) => {
-    if (!bulletinNumber.trim() || !title.trim() || !summary.trim() || !technicalDetails.trim()) {
+    if (!title.trim() || !summary.trim() || !technicalDetails.trim()) {
       toast.error('Please fill out all required fields');
+      return;
+    }
+    if (!isEditMode && !bulletinNumber.trim()) {
+      toast.error('Save the bulletin first so it gets a bulletin number, then export the PDF.');
       return;
     }
 
@@ -287,11 +358,7 @@ export default function TechnicalBulletin() {
   };
 
   const handleSave = async () => {
-    // Validation
-    if (!bulletinNumber.trim()) {
-      toast.error('Please enter a bulletin number');
-      return;
-    }
+    // Validation (bulletin number is auto-assigned — no manual entry required)
     if (!title.trim()) {
       toast.error('Please enter a title');
       return;
@@ -310,8 +377,21 @@ export default function TechnicalBulletin() {
     }
 
     setSaving(true);
+
+    // For new bulletins, assign the authoritative sequential number at save time
+    // (re-query the latest max so concurrent creates don't collide).
+    let assignedNumber = bulletinNumber.trim();
+    if (!isEditMode) {
+      const { data: existingRows } = await supabase
+        .from('technical_bulletins')
+        .select('bulletin_number');
+      const existing = (existingRows || []).map((r: any) => r.bulletin_number).filter(Boolean);
+      assignedNumber = computeNextBulletinNumber(existing);
+    }
+
     const bulletinData = {
-      bulletin_number: bulletinNumber.trim(),
+      bulletin_number: assignedNumber,
+      bulletin_type: bulletinType,
       title: title.trim(),
       date,
       severity,
@@ -417,6 +497,21 @@ export default function TechnicalBulletin() {
     fetchParts();
   }, []);
 
+  // On new-form load, preview the next sequential bulletin number (display only;
+  // the authoritative number is assigned at save time to avoid collisions).
+  useEffect(() => {
+    if (isEditMode) return;
+    const fetchNextNumber = async () => {
+      const { data, error } = await supabase
+        .from('technical_bulletins')
+        .select('bulletin_number');
+      if (error || !data) return;
+      const existing = data.map((r: any) => r.bulletin_number).filter(Boolean);
+      setNextNumberPreview(computeNextBulletinNumber(existing));
+    };
+    fetchNextNumber();
+  }, [isEditMode]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-800/50">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
@@ -460,13 +555,20 @@ export default function TechnicalBulletin() {
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="bulletinNumber">Bulletin Number *</Label>
-                <Input
+                <Label htmlFor="bulletinNumber">Bulletin Number</Label>
+                <div
                   id="bulletinNumber"
-                  placeholder="e.g., 2024-001"
-                  value={bulletinNumber}
-                  onChange={(e) => setBulletinNumber(e.target.value)}
-                />
+                  className="mt-1 flex h-10 w-full items-center rounded-md border border-dashed border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700/50 px-3 font-mono text-sm text-gray-700 dark:text-gray-200"
+                >
+                  {isEditMode
+                    ? `TB-${bulletinNumber}`
+                    : `TB-${nextNumberPreview || '…'}`}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {isEditMode
+                    ? 'Auto-assigned — locked'
+                    : 'Auto-assigned on save (next available number)'}
+                </p>
               </div>
               <div>
                 <Label htmlFor="date">Date *</Label>
@@ -476,6 +578,29 @@ export default function TechnicalBulletin() {
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                 />
+              </div>
+            </div>
+
+            {/* Bulletin Type */}
+            <div>
+              <Label>Bulletin Type *</Label>
+              <p className="text-xs text-gray-500 mb-2">Determines the purpose and a default severity (you can still change severity below).</p>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {BULLETIN_TYPE_OPTIONS.map(t => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => handleTypeChange(t.value)}
+                    className={`text-left rounded-lg border p-3 transition ${
+                      bulletinType === t.value
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-600'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="font-medium text-sm text-gray-900 dark:text-gray-100">{t.label}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.description}</div>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -897,7 +1022,11 @@ export default function TechnicalBulletin() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-300">Bulletin:</span>
-                <span className="font-mono">TB-{bulletinNumber || '___'}</span>
+                <span className="font-mono">TB-{isEditMode ? bulletinNumber : (nextNumberPreview || '___')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-300">Type:</span>
+                <span>{BULLETIN_TYPE_OPTIONS.find(t => t.value === bulletinType)?.label || bulletinType}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-300">Severity:</span>
